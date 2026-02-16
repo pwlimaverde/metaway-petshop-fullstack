@@ -1,0 +1,52 @@
+[project]
+name = "metaway-api"
+version = "0.1.0"
+description = "API do sistema de gestão de petshop da Metaway"
+readme = "README.md"
+requires-python = ">=3.13,<4.0"
+dependencies = [
+    "alembic",
+    "asyncpg",
+    "fastapi",
+    "passlib[bcrypt]",
+    "pydantic",
+    "pydantic-settings",
+    "python-dotenv",
+    "python-jose[cryptography]",
+    "python-multipart",
+    "psycopg2-binary",
+    "sqlalchemy[asyncio]",
+    "uvicorn[standard]",
+]
+
+[build-system]
+requires = ["setuptools>=69.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[dependency-groups]
+dev = [
+    "httpx",
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+    "ruff",
+]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 88
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "RUF"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

@@ -18,6 +18,7 @@ __pycache__/
 venv/
 env/
 ENV/
+.uv/
 .python-version
 
 .pytest_cache/
@@ -92,4 +93,4 @@ AGENTS.md
 CLAUDE.md
 
 # Local scratch docs
-doc_dev/
+.doc_dev/

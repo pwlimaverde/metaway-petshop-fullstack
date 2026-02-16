@@ -53,13 +53,6 @@ Sistema web + API para gestão de **clientes**, **pets**, **raças** e **atendim
 | Fotos no cadastro de Pets e Cliente | **Incluído** — upload com armazenamento local |
 | CPF como nome de usuário | **Incluído** — login via CPF |
 
-### 3.3 Fora de escopo
-
-- Recuperação de senha / fluxo de e-mail.
-- Notificações push.
-- Pagamentos / integrações externas.
-- Multi-tenancy.
-
 ---
 
 ## 4. Stack Tecnológica (imutável)
@@ -90,6 +83,10 @@ Sistema web + API para gestão de **clientes**, **pets**, **raças** e **atendim
 | Estilização | TailwindCSS |
 | HTTP Client | Axios |
 | Testes | Vitest |
+| Ícones | lucide-vue-next |
+| Variantes CSS | class-variance-authority (cva) |
+| Merge de classes | clsx + tailwind-merge |
+| UI Headless | @headlessui/vue (Modais, Popovers) |
 
 ### 4.3 Infraestrutura
 
@@ -628,6 +625,74 @@ docker compose -f infra/docker-compose.yml up --build
 - Menus e rotas condicionados por `role`.
 - Rotas de Admin inacessíveis para Cliente.
 - Telas de Cliente não exibem botões de criar/excluir (apenas visualizar e editar).
+
+### 15.4 Design System (Design Tokens)
+
+#### Paleta de cores (Tailwind Config)
+
+| Token | Cor Tailwind | Uso |
+|-------|-------------|-----|
+| **Primary (Brand)** | `indigo-600` | Botões principais, links, estados ativos, foco |
+| **Secondary (Accent)** | `orange-500` | Badges de pets, CTAs secundários |
+| **Neutral (Surface/Text)** | `slate-50` a `slate-900` | Backgrounds (`50`), títulos (`900`), textos secundários (`500`) |
+| **Success** | `emerald-500` | Operações concluídas |
+| **Error** | `rose-600` | Erros de validação, ações destrutivas |
+| **Warning** | `amber-500` | Alertas de sistema |
+| **Info** | `sky-500` | Status neutros |
+
+#### Tipografia
+
+- **Font Family**: `Inter` (Google Fonts).
+- **Escala**: `text-xs`/`text-sm` (legendas, badges) → `text-base` (corpo, inputs) → `text-lg`/`text-xl` (títulos de card) → `text-2xl`/`text-3xl` (cabeçalhos de página).
+
+#### Formas e espaçamento
+
+- **Bordas**: `rounded-lg` (8px) para componentes padrão; `rounded-xl` (12px) para cards e modais.
+- **Sombras**: `shadow-sm` (inputs, cards); `shadow-lg` (modais, dropdowns).
+- **Espaçamento**: múltiplos de 4 (padrão Tailwind), layouts com respiro (`p-4` a `p-8`).
+
+### 15.5 Biblioteca de Componentes (Atomic Design)
+
+Componentes estilizados com `cva` (Class Variance Authority) para variantes consistentes.
+
+#### Átomos
+
+| Componente | Especificação |
+|------------|---------------|
+| **Button** | Variantes: `primary` (indigo), `secondary` (outline), `ghost`, `danger` (rose). Tamanhos: `sm`, `md`, `lg`. Estados: `loading`, `disabled`. |
+| **Input / Textarea** | Borda `slate-300`, foco `ring-2 ring-indigo-500`. Suporte a ícones. Estado de erro com borda vermelha + texto de ajuda. |
+| **Badge** | Pílulas `rounded-full`. Variantes: `outline`, `solid`, `subtle`. |
+| **Avatar** | Imagem circular com fallback para iniciais do nome. |
+| **Icon** | Wrapper para `lucide-vue-next`. |
+
+#### Moléculas
+
+| Componente | Especificação |
+|------------|---------------|
+| **FormGroup** | Label + Input + ErrorMessage (integrado a validação). |
+| **SearchInput** | Input com ícone de lupa e botão de limpar. |
+| **Toast / Alert** | Notificações flutuantes (sucesso/erro) com auto-dismiss. |
+| **Dropdown Menu** | Ações contextuais por linha (editar, excluir). |
+
+#### Organismos
+
+| Componente | Especificação |
+|------------|---------------|
+| **DataTable** | Tabela responsiva com cabeçalho ordenável, paginação no rodapé, coluna de ações. |
+| **Modal (Dialog)** | Overlay com `backdrop-blur-sm`. Cabeçalho, corpo scrollável, rodapé com ações. |
+| **Sidebar Navigation** | Links com ícones. Estado ativo: `bg-indigo-50 text-indigo-600`. Responsivo (drawer no mobile). |
+
+### 15.6 Estrutura de componentes
+
+```
+src/components/
+├── ui/             # Átomos genéricos (Button, Input, Badge, Avatar)
+├── shared/         # Moléculas globais (Navbar, Sidebar, Toast)
+└── domain/         # Componentes de negócio
+    ├── pets/       # PetCard, PetForm
+    ├── clients/    # ClientList, ClientForm
+    └── ...
+```
 
 ---
 
