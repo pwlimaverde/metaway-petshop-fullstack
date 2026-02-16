@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -10,35 +11,38 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    metaway_petshop_docker_host: str = "ssh://user@host"
-    docker_host: str = "ssh://user@host"
-    compose_project_name: str = "metaway-petshop"
-
     app_env: str = "development"
     api_prefix: str = "/api/v1"
     api_host: str = "0.0.0.0"
     api_port: int = 8000
-    web_port: int = 5173
 
     postgres_host: str = "db"
     postgres_port: int = 5432
     postgres_db: str = "metaway_petshop"
     postgres_user: str = "metaway_petshop"
-    postgres_password: str = "change_me"
-    database_url: str = (
-        "postgresql+asyncpg://metaway_petshop:change_me@db:5432/metaway_petshop"
-    )
+    postgres_password: str
+    database_url: str | None = None
 
-    jwt_secret_key: str = "change_me_with_a_strong_secret"
+    jwt_secret_key: str
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60
 
     admin_seed_name: str = "Administrador"
     admin_seed_cpf: str = "00000000000"
-    admin_seed_password: str = "change_me"
+    admin_seed_password: str
+    run_seed_on_startup: bool = False
 
     upload_dir: str = "/app/storage"
     upload_max_size_mb: int = 5
+
+    @model_validator(mode="after")
+    def assemble_database_url(self) -> "Settings":
+        if self.database_url is None:
+            self.database_url = (
+                f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}"
+                f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
+            )
+        return self
 
 
 @lru_cache

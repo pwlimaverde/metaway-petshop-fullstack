@@ -1,6 +1,9 @@
 services:
   db:
     image: postgres:16-alpine
+    restart: unless-stopped
+    env_file:
+      - ../.env
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -19,6 +22,7 @@ services:
     build:
       context: ../apps/api
       dockerfile: Dockerfile
+    restart: unless-stopped
     env_file:
       - ../.env
     depends_on:
@@ -28,11 +32,18 @@ services:
       - storage:/app/storage
     ports:
       - "${API_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   web:
     build:
       context: ../apps/web
       dockerfile: Dockerfile
+    restart: unless-stopped
     depends_on:
       - api
 
@@ -40,11 +51,14 @@ services:
     build:
       context: ./nginx
       dockerfile: Dockerfile
+    restart: unless-stopped
     ports:
       - "80:80"
     depends_on:
-      - api
-      - web
+      api:
+        condition: service_healthy
+      web:
+        condition: service_started
 
 volumes:
   pgdata:

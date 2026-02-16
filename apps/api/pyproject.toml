@@ -7,6 +7,7 @@ requires-python = ">=3.13,<4.0"
 dependencies = [
     "alembic",
     "asyncpg",
+    "bcrypt<4.1",
     "fastapi",
     "passlib[bcrypt]",
     "pydantic",
@@ -28,6 +29,7 @@ where = ["src"]
 
 [dependency-groups]
 dev = [
+    "aiosqlite",
     "httpx",
     "pytest",
     "pytest-asyncio",
@@ -42,6 +44,7 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "RUF"]
+ignore = ["B008"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -50,3 +53,9 @@ indent-style = "space"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "unit: testes unitários sem I/O",
+    "integration: testes com banco de dados real",
+    "e2e: testes end-to-end via API",
+]
