@@ -1,5 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from metaway_api.application.auth_use_case import AuthUseCase
@@ -8,6 +10,7 @@ from metaway_api.infra.database import get_db_session
 from metaway_api.interfaces.schemas import TokenResponse
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
+limiter = Limiter(key_func=get_remote_address)
 
 
 @router.post(
@@ -20,7 +23,9 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
         401: {"description": "Credenciais inválidas."},
     },
 )
+@limiter.limit("5/minute")
 async def login(
+    request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
     session: AsyncSession = Depends(get_db_session),
 ) -> TokenResponse:

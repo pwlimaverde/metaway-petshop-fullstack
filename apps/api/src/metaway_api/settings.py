@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     api_prefix: str = "/api/v1"
     api_host: str = "0.0.0.0"
     api_port: int = 8000
+    allowed_origins: str = "http://localhost:5173,http://localhost:80"
 
     postgres_host: str = "db"
     postgres_port: int = 5432
@@ -32,7 +33,7 @@ class Settings(BaseSettings):
     admin_seed_password: str
     demo_client_name: str = "Cliente Demonstração"
     demo_client_cpf: str = "12345678909"
-    demo_client_password: str = "Cliente123"
+    demo_client_password: str | None = None
     run_seed_on_startup: bool = False
 
     upload_dir: str = "/app/storage"
