@@ -4,7 +4,7 @@ import os
 
 os.environ.setdefault("POSTGRES_PASSWORD", "test_only")
 os.environ.setdefault("JWT_SECRET_KEY", "test_only_secret")
-os.environ.setdefault("ADMIN_SEED_PASSWORD", "test_only")
+os.environ.setdefault("ADMIN_SEED_PASSWORD", "Test123")
 
 from collections.abc import AsyncIterator, Awaitable, Callable
 from datetime import UTC, date, datetime
@@ -106,29 +106,29 @@ async def seed_data(session_factory: async_sessionmaker[AsyncSession]) -> SeedDa
     other_client_password = "Other123!"
 
     async with session_factory() as session:
-        client = Client(name="Cliente Principal", cpf="12345678901")
-        other_client = Client(name="Cliente Secundário", cpf="98765432100")
+        client = Client(name="Cliente Principal", cpf="12345678909")
+        other_client = Client(name="Cliente Secundário", cpf="39053344705")
         breed = Breed(descricao="Labrador")
         other_breed = Breed(descricao="Poodle")
         session.add_all([client, other_client, breed, other_breed])
         await session.flush()
 
         admin_user = User(
-            cpf="00000000000",
+            cpf="52998224725",
             name="Administrador",
             role=UserRole.ADMIN,
             password_hash=hash_password(admin_password),
         )
         client_user = User(
-            cpf="12345678901",
-            name="Cliente User",
+            cpf="12345678909",
+            name="Cliente Principal",
             role=UserRole.CLIENTE,
             password_hash=hash_password(client_password),
             client_id=client.id,
         )
         other_client_user = User(
-            cpf="98765432100",
-            name="Outro Cliente User",
+            cpf="39053344705",
+            name="Cliente Secundário",
             role=UserRole.CLIENTE,
             password_hash=hash_password(other_client_password),
             client_id=other_client.id,
@@ -139,17 +139,23 @@ async def seed_data(session_factory: async_sessionmaker[AsyncSession]) -> SeedDa
         address = Address(
             client_id=client.id,
             logradouro="Rua 1",
-            cidade="São Paulo",
-            bairro="Centro",
+            numero="100",
             complemento="Apto 1",
+            bairro="Centro",
+            cidade="São Paulo",
+            estado="SP",
+            cep="01001000",
             tag="casa",
         )
         other_address = Address(
             client_id=other_client.id,
             logradouro="Rua 2",
-            cidade="Rio",
-            bairro="Zona Sul",
+            numero="200",
             complemento=None,
+            bairro="Zona Sul",
+            cidade="Rio de Janeiro",
+            estado="RJ",
+            cep="20040020",
             tag="trabalho",
         )
         contact = Contact(
@@ -236,22 +242,3 @@ async def auth_headers(
         return {"Authorization": f"Bearer {token}"}
 
     return _build
-
-
-@pytest_asyncio.fixture
-async def unlinked_client_user(
-    session_factory: async_sessionmaker[AsyncSession],
-) -> dict[str, str | int]:
-    password = "NoLink123!"
-    async with session_factory() as session:
-        user = User(
-            cpf="55544433322",
-            name="Cliente Sem Vinculo",
-            role=UserRole.CLIENTE,
-            password_hash=hash_password(password),
-            client_id=None,
-        )
-        session.add(user)
-        await session.commit()
-        await session.refresh(user)
-        return {"cpf": user.cpf, "password": password, "id": user.id}

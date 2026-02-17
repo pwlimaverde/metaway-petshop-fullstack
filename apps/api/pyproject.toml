@@ -9,6 +9,7 @@ dependencies = [
     "asyncpg",
     "bcrypt<4.1",
     "fastapi",
+    "pillow",
     "passlib[bcrypt]",
     "pydantic",
     "pydantic-settings",

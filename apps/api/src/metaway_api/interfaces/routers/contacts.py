@@ -64,6 +64,29 @@ async def list_contacts_for_client(
     return [ContactResponse.model_validate(contact) for contact in contacts]
 
 
+@router.post(
+    "/clients/me/contacts",
+    response_model=ContactResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Criar meu contato",
+    description="Cria contato para o próprio cliente autenticado.",
+)
+async def create_my_contact(
+    payload: ContactCreate,
+    current_user: User = Depends(require_roles(UserRole.CLIENTE)),
+    session: AsyncSession = Depends(get_db_session),
+) -> ContactResponse:
+    if current_user.client_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Cliente não vinculado."
+        )
+    contact = await ContactRepository(session).create(
+        client_id=current_user.client_id, **payload.model_dump()
+    )
+    await session.commit()
+    return ContactResponse.model_validate(contact)
+
+
 @router.get(
     "/clients/me/contacts",
     response_model=list[ContactResponse],
@@ -112,13 +135,15 @@ async def update_contact(
     "/contacts/{contact_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Excluir contato",
-    description="Exclui contato (admin).",
+    description="Admin exclui qualquer contato; cliente exclui apenas os próprios.",
 )
 async def delete_contact(
     contact_id: int,
-    _: User = Depends(require_roles(UserRole.ADMIN)),
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.CLIENTE)),
     session: AsyncSession = Depends(get_db_session),
 ) -> None:
     contact = await _get_contact_or_404(session, contact_id)
+    if not is_admin(current_user):
+        check_ownership(contact.client_id, current_user)
     await ContactRepository(session).delete(contact)
     await session.commit()

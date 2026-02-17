@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = 60
 
     admin_seed_name: str = "Administrador"
-    admin_seed_cpf: str = "00000000000"
+    admin_seed_cpf: str = "52998224725"
     admin_seed_password: str
     run_seed_on_startup: bool = False
 

@@ -4,6 +4,7 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import (
+    CheckConstraint,
     Date,
     DateTime,
     ForeignKey,
@@ -18,7 +19,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-from metaway_api.domain.enums import ContactType, UserRole
+from metaway_api.domain.enums import AppointmentStatus, ContactType, UserRole
 
 
 class Base(DeclarativeBase):
@@ -27,11 +28,21 @@ class Base(DeclarativeBase):
 
 class User(Base):
     __tablename__ = "users"
-    __table_args__ = (Index("ix_users_cpf", "cpf"),)
+    __table_args__ = (
+        Index("ix_users_cpf", "cpf"),
+        CheckConstraint(
+            "(role <> 'CLIENTE') OR (client_id IS NOT NULL)",
+            name="ck_users_cliente_requires_client",
+        ),
+        CheckConstraint(
+            "(role <> 'ADMIN') OR (client_id IS NULL)",
+            name="ck_users_admin_without_client",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     cpf: Mapped[str] = mapped_column(String(14), nullable=False, unique=True)
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     role: Mapped[UserRole] = mapped_column(
         SQLEnum(UserRole, name="user_role", native_enum=False),
         nullable=False,
@@ -41,12 +52,23 @@ class User(Base):
     client_id: Mapped[int | None] = mapped_column(
         ForeignKey("clients.id", ondelete="SET NULL"),
         nullable=True,
-        unique=True,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
     )
 
     client: Mapped[Client | None] = relationship(
         "Client",
-        back_populates="user",
+        back_populates="users",
         lazy="joined",
     )
 
@@ -56,20 +78,23 @@ class Client(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    cpf: Mapped[str | None] = mapped_column(
-        String(14), nullable=True, unique=True, index=True
-    )
+    cpf: Mapped[str | None] = mapped_column(String(14), nullable=True, unique=True)
     photo_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
     )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
 
-    user: Mapped[User | None] = relationship(
+    users: Mapped[list[User]] = relationship(
         "User",
         back_populates="client",
-        uselist=False,
         lazy="selectin",
     )
     addresses: Mapped[list[Address]] = relationship(
@@ -105,10 +130,24 @@ class Address(Base):
         nullable=False,
     )
     logradouro: Mapped[str] = mapped_column(String(255), nullable=False)
-    cidade: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
-    bairro: Mapped[str] = mapped_column(String(120), nullable=False)
+    numero: Mapped[str] = mapped_column(String(20), nullable=False)
     complemento: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    bairro: Mapped[str] = mapped_column(String(120), nullable=False)
+    cidade: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    estado: Mapped[str] = mapped_column(String(2), nullable=False)
+    cep: Mapped[str] = mapped_column(String(10), nullable=False)
     tag: Mapped[str] = mapped_column(String(60), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
 
     client: Mapped[Client] = relationship(
         "Client", back_populates="addresses", lazy="joined"
@@ -130,6 +169,17 @@ class Contact(Base):
         nullable=False,
     )
     valor: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
 
     client: Mapped[Client] = relationship(
         "Client", back_populates="contacts", lazy="joined"
@@ -142,6 +192,17 @@ class Breed(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     descricao: Mapped[str] = mapped_column(String(120), nullable=False, unique=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
 
     pets: Mapped[list[Pet]] = relationship(
         "Pet", back_populates="breed", lazy="selectin"
@@ -167,6 +228,17 @@ class Pet(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     birth_date: Mapped[date] = mapped_column(Date, nullable=False)
     photo_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
 
     client: Mapped[Client] = relationship(
         "Client", back_populates="pets", lazy="joined"
@@ -196,5 +268,22 @@ class Appointment(Base):
     descricao: Mapped[str] = mapped_column(Text, nullable=False)
     valor: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     data: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    status: Mapped[AppointmentStatus] = mapped_column(
+        SQLEnum(AppointmentStatus, name="appointment_status", native_enum=False),
+        nullable=False,
+        default=AppointmentStatus.AGENDADO,
+        server_default="AGENDADO",
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
 
     pet: Mapped[Pet] = relationship("Pet", back_populates="appointments", lazy="joined")

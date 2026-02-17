@@ -45,13 +45,24 @@ async def _ensure_foreign_keys(
     response_model=PetResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Criar pet",
-    description="Cria pet vinculado a cliente e raça (admin).",
+    description="Admin cria pet para qualquer cliente; cliente cria pet para si.",
 )
 async def create_pet(
     payload: PetCreate,
-    _: User = Depends(require_roles(UserRole.ADMIN)),
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.CLIENTE)),
     session: AsyncSession = Depends(get_db_session),
 ) -> PetResponse:
+    if not is_admin(current_user):
+        if current_user.client_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Cliente não vinculado.",
+            )
+        if payload.client_id != current_user.client_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Cliente só pode criar pet para si.",
+            )
     await _ensure_foreign_keys(
         session, client_id=payload.client_id, breed_id=payload.breed_id
     )
@@ -152,14 +163,16 @@ async def update_pet(
     "/{pet_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Excluir pet",
-    description="Exclui pet (admin).",
+    description="Admin exclui qualquer pet; cliente exclui apenas pet próprio.",
 )
 async def delete_pet(
     pet_id: int,
-    _: User = Depends(require_roles(UserRole.ADMIN)),
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.CLIENTE)),
     session: AsyncSession = Depends(get_db_session),
 ) -> None:
     pet = await _get_pet_or_404(session, pet_id)
+    if not is_admin(current_user):
+        check_ownership(pet.client_id, current_user)
     await PetRepository(session).delete(pet)
     await session.commit()
 

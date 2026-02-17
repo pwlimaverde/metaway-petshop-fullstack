@@ -108,22 +108,18 @@ async def get_appointment(
     "/{appointment_id}",
     response_model=AppointmentResponse,
     summary="Atualizar atendimento",
-    description="Admin atualiza qualquer atendimento; cliente apenas de seus pets.",
+    description="Atualiza atendimento (admin).",
 )
 async def update_appointment(
     appointment_id: int,
     payload: AppointmentUpdate,
-    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.CLIENTE)),
+    _: User = Depends(require_roles(UserRole.ADMIN)),
     session: AsyncSession = Depends(get_db_session),
 ) -> AppointmentResponse:
     appointment = await _get_appointment_or_404(session, appointment_id)
-    if not is_admin(current_user):
-        check_ownership(appointment.pet.client_id, current_user)
 
     next_pet_id = payload.pet_id if payload.pet_id is not None else appointment.pet_id
-    target_pet = await _ensure_pet_exists(session, next_pet_id)
-    if not is_admin(current_user):
-        check_ownership(target_pet.client_id, current_user)
+    await _ensure_pet_exists(session, next_pet_id)
 
     try:
         updated = await AppointmentRepository(session).update(

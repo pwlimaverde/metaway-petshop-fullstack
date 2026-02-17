@@ -38,9 +38,7 @@ async def test_breeds_client_read_only(client, seed_data, auth_headers) -> None:
 async def test_breeds_not_found_branches(client, seed_data, auth_headers) -> None:
     admin = await auth_headers(seed_data["admin_cpf"], seed_data["admin_password"])
 
-    assert (
-        await client.get("/api/v1/breeds/999999", headers=admin)
-    ).status_code == 404
+    assert (await client.get("/api/v1/breeds/999999", headers=admin)).status_code == 404
     assert (
         await client.patch(
             "/api/v1/breeds/999999", headers=admin, json={"descricao": "X"}

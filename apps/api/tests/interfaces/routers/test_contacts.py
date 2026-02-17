@@ -9,9 +9,7 @@ async def test_contacts_admin_crud(client, seed_data, auth_headers) -> None:
     assert created.status_code == 201
     contact_id = created.json()["id"]
 
-    deleted = await client.delete(
-        f"/api/v1/contacts/{contact_id}", headers=admin
-    )
+    deleted = await client.delete(f"/api/v1/contacts/{contact_id}", headers=admin)
     assert deleted.status_code == 204
 
 
@@ -23,6 +21,17 @@ async def test_client_cannot_create_contact(client, seed_data, auth_headers) -> 
         json={"tag": "x", "tipo": "EMAIL", "valor": "x@example.com"},
     )
     assert response.status_code == 403
+
+
+async def test_client_can_create_own_contact(client, seed_data, auth_headers) -> None:
+    headers = await auth_headers(seed_data["client_cpf"], seed_data["client_password"])
+    response = await client.post(
+        "/api/v1/clients/me/contacts",
+        headers=headers,
+        json={"tag": "pessoal", "tipo": "EMAIL", "valor": "cliente@me.com"},
+    )
+    assert response.status_code == 201
+    assert response.json()["client_id"] == seed_data["client_id"]
 
 
 async def test_contacts_ownership(client, seed_data, auth_headers) -> None:
@@ -54,10 +63,8 @@ async def test_contacts_ownership(client, seed_data, auth_headers) -> None:
     )
     assert forbidden.status_code == 403
 
-    forbidden_delete = await client.delete(
-        f"/api/v1/contacts/{contact_id}", headers=headers
-    )
-    assert forbidden_delete.status_code == 403
+    deleted = await client.delete(f"/api/v1/contacts/{contact_id}", headers=headers)
+    assert deleted.status_code == 204
 
 
 async def test_contacts_not_found_branches(client, seed_data, auth_headers) -> None:
@@ -81,13 +88,3 @@ async def test_contacts_not_found_branches(client, seed_data, auth_headers) -> N
     assert (
         await client.delete("/api/v1/contacts/999999", headers=admin)
     ).status_code == 404
-
-
-async def test_contacts_unlinked_client(
-    client, seed_data, auth_headers, unlinked_client_user
-) -> None:
-    headers = await auth_headers(
-        unlinked_client_user["cpf"], unlinked_client_user["password"]
-    )
-    response = await client.get("/api/v1/clients/me/contacts", headers=headers)
-    assert response.status_code == 404

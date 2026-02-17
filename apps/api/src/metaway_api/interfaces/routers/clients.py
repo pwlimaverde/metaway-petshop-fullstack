@@ -27,6 +27,21 @@ async def _get_client_or_404(session: AsyncSession, client_id: int) -> Client:
     return client
 
 
+def _to_client_response(
+    client: Client,
+    *,
+    cpf_override: str | None = None,
+) -> ClientResponse:
+    return ClientResponse(
+        id=client.id,
+        name=client.name,
+        cpf=cpf_override if cpf_override is not None else client.cpf,
+        photo_url=client.photo_url,
+        created_at=client.created_at,
+        updated_at=client.updated_at,
+    )
+
+
 @router.post(
     "",
     response_model=ClientResponse,
@@ -46,9 +61,9 @@ async def create_client(
         await session.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="CPF já cadastrado para outro cliente.",
+            detail="CPF de cliente já cadastrado.",
         ) from exc
-    return ClientResponse.model_validate(client)
+    return _to_client_response(client)
 
 
 @router.get(
@@ -64,7 +79,7 @@ async def list_clients(
     limit: int = Query(100, ge=1, le=200),
 ) -> list[ClientResponse]:
     clients = await ClientRepository(session).list(offset=offset, limit=limit)
-    return [ClientResponse.model_validate(client) for client in clients]
+    return [_to_client_response(client) for client in clients]
 
 
 @router.get(
@@ -79,7 +94,7 @@ async def get_client(
     session: AsyncSession = Depends(get_db_session),
 ) -> ClientResponse:
     client = await _get_client_or_404(session, client_id)
-    return ClientResponse.model_validate(client)
+    return _to_client_response(client)
 
 
 @router.patch(
@@ -105,9 +120,9 @@ async def update_client(
         await session.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Não foi possível atualizar o cliente.",
+            detail="CPF de cliente já cadastrado.",
         ) from exc
-    return ClientResponse.model_validate(updated)
+    return _to_client_response(updated)
 
 
 @router.delete(
@@ -141,7 +156,7 @@ async def get_me(
             status_code=status.HTTP_404_NOT_FOUND, detail="Cliente não vinculado."
         )
     client = await _get_client_or_404(session, current_user.client_id)
-    return ClientResponse.model_validate(client)
+    return _to_client_response(client, cpf_override=client.cpf or current_user.cpf)
 
 
 @router.patch(
@@ -170,9 +185,9 @@ async def update_me(
         await session.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Não foi possível atualizar o cliente.",
+            detail="CPF de cliente já cadastrado.",
         ) from exc
-    return ClientResponse.model_validate(updated)
+    return _to_client_response(updated, cpf_override=updated.cpf or current_user.cpf)
 
 
 @router.post(

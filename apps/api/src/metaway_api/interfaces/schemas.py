@@ -5,14 +5,13 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from metaway_api.domain.enums import ContactType, UserRole
+from metaway_api.domain.enums import AppointmentStatus, ContactType, UserRole
+from metaway_api.domain.validators import validate_cpf
+from metaway_api.infra.security import validate_password_strength
 
 
 def _normalize_cpf(value: str) -> str:
-    digits = "".join(char for char in value if char.isdigit())
-    if len(digits) != 11:
-        raise ValueError("CPF deve conter 11 dígitos.")
-    return digits
+    return validate_cpf(value)
 
 
 class BaseResponseSchema(BaseModel):
@@ -47,6 +46,12 @@ class UserCreate(BaseModel):
     def normalize_cpf(cls, value: str) -> str:
         return _normalize_cpf(value)
 
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, value: str) -> str:
+        validate_password_strength(value)
+        return value
+
 
 class UserUpdate(BaseModel):
     cpf: str | None = Field(default=None, min_length=11, max_length=14)
@@ -62,6 +67,14 @@ class UserUpdate(BaseModel):
             return None
         return _normalize_cpf(value)
 
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        validate_password_strength(value)
+        return value
+
 
 class UserResponse(BaseResponseSchema):
     id: int
@@ -69,24 +82,35 @@ class UserResponse(BaseResponseSchema):
     name: str
     role: UserRole
     client_id: int | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class PasswordChangeRequest(BaseModel):
+    current_password: str = Field(min_length=1, max_length=128)
+    new_password: str = Field(min_length=6, max_length=128)
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_new_password(cls, value: str) -> str:
+        validate_password_strength(value)
+        return value
 
 
 class ClientCreate(BaseModel):
+    cpf: str = Field(min_length=11, max_length=14)
     name: str = Field(min_length=1, max_length=255)
-    cpf: str | None = Field(default=None, min_length=11, max_length=14)
     photo_url: str | None = Field(default=None, max_length=512)
 
     @field_validator("cpf")
     @classmethod
-    def normalize_cpf(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
+    def normalize_cpf(cls, value: str) -> str:
         return _normalize_cpf(value)
 
 
 class ClientUpdate(BaseModel):
-    name: str | None = Field(default=None, min_length=1, max_length=255)
     cpf: str | None = Field(default=None, min_length=11, max_length=14)
+    name: str | None = Field(default=None, min_length=1, max_length=255)
     photo_url: str | None = Field(default=None, max_length=512)
 
     @field_validator("cpf")
@@ -103,21 +127,28 @@ class ClientResponse(BaseResponseSchema):
     cpf: str | None
     photo_url: str | None
     created_at: datetime
+    updated_at: datetime
 
 
 class AddressCreate(BaseModel):
     logradouro: str = Field(min_length=1, max_length=255)
-    cidade: str = Field(min_length=1, max_length=120)
-    bairro: str = Field(min_length=1, max_length=120)
+    numero: str = Field(min_length=1, max_length=20)
     complemento: str | None = Field(default=None, max_length=255)
+    bairro: str = Field(min_length=1, max_length=120)
+    cidade: str = Field(min_length=1, max_length=120)
+    estado: str = Field(min_length=2, max_length=2)
+    cep: str = Field(min_length=1, max_length=10)
     tag: str = Field(min_length=1, max_length=60)
 
 
 class AddressUpdate(BaseModel):
     logradouro: str | None = Field(default=None, min_length=1, max_length=255)
-    cidade: str | None = Field(default=None, min_length=1, max_length=120)
-    bairro: str | None = Field(default=None, min_length=1, max_length=120)
+    numero: str | None = Field(default=None, min_length=1, max_length=20)
     complemento: str | None = Field(default=None, max_length=255)
+    bairro: str | None = Field(default=None, min_length=1, max_length=120)
+    cidade: str | None = Field(default=None, min_length=1, max_length=120)
+    estado: str | None = Field(default=None, min_length=2, max_length=2)
+    cep: str | None = Field(default=None, min_length=1, max_length=10)
     tag: str | None = Field(default=None, min_length=1, max_length=60)
 
 
@@ -125,10 +156,15 @@ class AddressResponse(BaseResponseSchema):
     id: int
     client_id: int
     logradouro: str
-    cidade: str
-    bairro: str
+    numero: str
     complemento: str | None
+    bairro: str
+    cidade: str
+    estado: str
+    cep: str
     tag: str
+    created_at: datetime
+    updated_at: datetime
 
 
 class ContactCreate(BaseModel):
@@ -149,6 +185,8 @@ class ContactResponse(BaseResponseSchema):
     tag: str
     tipo: ContactType
     valor: str
+    created_at: datetime
+    updated_at: datetime
 
 
 class BreedCreate(BaseModel):
@@ -162,6 +200,8 @@ class BreedUpdate(BaseModel):
 class BreedResponse(BaseResponseSchema):
     id: int
     descricao: str
+    created_at: datetime
+    updated_at: datetime
 
 
 class PetCreate(BaseModel):
@@ -187,6 +227,8 @@ class PetResponse(BaseResponseSchema):
     name: str
     birth_date: date
     photo_url: str | None
+    created_at: datetime
+    updated_at: datetime
 
 
 class AppointmentCreate(BaseModel):
@@ -194,6 +236,7 @@ class AppointmentCreate(BaseModel):
     descricao: str = Field(min_length=1)
     valor: Decimal = Field(gt=0)
     data: datetime
+    status: AppointmentStatus = AppointmentStatus.AGENDADO
 
 
 class AppointmentUpdate(BaseModel):
@@ -201,6 +244,7 @@ class AppointmentUpdate(BaseModel):
     descricao: str | None = Field(default=None, min_length=1)
     valor: Decimal | None = Field(default=None, gt=0)
     data: datetime | None = None
+    status: AppointmentStatus | None = None
 
 
 class AppointmentResponse(BaseResponseSchema):
@@ -209,6 +253,9 @@ class AppointmentResponse(BaseResponseSchema):
     descricao: str
     valor: Decimal
     data: datetime
+    status: AppointmentStatus
+    created_at: datetime
+    updated_at: datetime
 
 
 class PhotoUploadResponse(BaseModel):

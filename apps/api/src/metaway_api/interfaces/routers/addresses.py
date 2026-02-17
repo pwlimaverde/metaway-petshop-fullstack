@@ -64,6 +64,29 @@ async def list_addresses_for_client(
     return [AddressResponse.model_validate(address) for address in addresses]
 
 
+@router.post(
+    "/clients/me/addresses",
+    response_model=AddressResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Criar meu endereço",
+    description="Cria endereço para o próprio cliente autenticado.",
+)
+async def create_my_address(
+    payload: AddressCreate,
+    current_user: User = Depends(require_roles(UserRole.CLIENTE)),
+    session: AsyncSession = Depends(get_db_session),
+) -> AddressResponse:
+    if current_user.client_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Cliente não vinculado."
+        )
+    address = await AddressRepository(session).create(
+        client_id=current_user.client_id, **payload.model_dump()
+    )
+    await session.commit()
+    return AddressResponse.model_validate(address)
+
+
 @router.get(
     "/clients/me/addresses",
     response_model=list[AddressResponse],
@@ -112,13 +135,15 @@ async def update_address(
     "/addresses/{address_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Excluir endereço",
-    description="Exclui endereço (admin).",
+    description="Admin exclui qualquer endereço; cliente exclui apenas os próprios.",
 )
 async def delete_address(
     address_id: int,
-    _: User = Depends(require_roles(UserRole.ADMIN)),
+    current_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.CLIENTE)),
     session: AsyncSession = Depends(get_db_session),
 ) -> None:
     address = await _get_address_or_404(session, address_id)
+    if not is_admin(current_user):
+        check_ownership(address.client_id, current_user)
     await AddressRepository(session).delete(address)
     await session.commit()

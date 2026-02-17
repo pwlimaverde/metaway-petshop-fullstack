@@ -9,9 +9,7 @@
 Sistema web + API para gestão de **clientes**, **pets**, **raças** e **atendimentos** de um petshop, com autenticação e autorização por perfil (**RBAC**) e regra de propriedade (**ownership**):
 
 - **Admin**: acesso total — pode **incluir, excluir, alterar e visualizar** qualquer cadastro.
-- **Cliente**: acesso restrito — pode apenas **visualizar e alterar** seus próprios registros e/ou registros dos seus pets.
-
-> **Importante**: conforme o PDF do desafio, o Cliente **NÃO pode incluir (criar) nem excluir (deletar)** registros. Apenas o Admin possui essas permissões.
+- **Cliente**: acesso restrito aos seus próprios dados, com permissões granulares por recurso (ver seção 7.2).
 
 ---
 
@@ -27,7 +25,7 @@ Sistema web + API para gestão de **clientes**, **pets**, **raças** e **atendim
 
 - Autenticar usuários usando **CPF como username**.
 - Permitir que Admin gerencie todo o cadastro (clientes, pets, raças, atendimentos, endereços, contatos).
-- Permitir que Cliente visualize e edite seu perfil, seus pets, endereços, contatos e consulte atendimentos relacionados.
+- Permitir que Cliente gerencie (CRUD) seus endereços, contatos e pets, edite seu perfil, e consulte atendimentos (somente leitura).
 
 ---
 
@@ -167,9 +165,7 @@ metaway-petshop-fullstack/
 | Perfil | Descrição | Operações permitidas |
 |--------|-----------|----------------------|
 | **Admin** | Acesso total ao sistema | **Incluir, excluir, alterar, visualizar** (CRUD completo) |
-| **Cliente** | Acesso restrito (ownership) | **Visualizar e alterar** apenas seus dados (READ + UPDATE) |
-
-> Conforme PDF: Admin = 4 verbos (incluir, excluir, alterar, visualizar). Cliente = 2 verbos (visualizar, alterar). O Cliente **não pode criar nem excluir** registros.
+| **Cliente** | Acesso restrito (ownership) | Permissões granulares por recurso (ver matriz abaixo) |
 
 ### 7.2 Matriz de permissões por recurso
 
@@ -177,12 +173,14 @@ metaway-petshop-fullstack/
 |---------|-------|---------|
 | Users | CRUD completo | Sem acesso |
 | Clients | CRUD completo | READ + UPDATE (apenas `/me`) |
-| Addresses | CRUD completo (qualquer cliente) | READ + UPDATE (apenas próprios) |
-| Contacts | CRUD completo (qualquer cliente) | READ + UPDATE (apenas próprios) |
+| Addresses | CRUD completo (qualquer cliente) | **CRUD completo** (apenas próprios) |
+| Contacts | CRUD completo (qualquer cliente) | **CRUD completo** (apenas próprios) |
 | Breeds | CRUD completo | READ (listagem) |
-| Pets | CRUD completo | READ + UPDATE (apenas próprios) |
-| Appointments | CRUD completo | READ + UPDATE (apenas de seus pets) |
+| Pets | CRUD completo | **CRUD completo** (apenas próprios) |
+| Appointments | CRUD completo | **READ only** (apenas de seus pets) |
 | Fotos (Client/Pet) | Upload para qualquer um | Upload apenas para si/seus pets |
+
+> **Resumo Cliente**: pode criar, visualizar, alterar e excluir endereços, contatos e pets próprios. Atendimentos são somente leitura. Não tem acesso a usuários nem raças (exceto listagem).
 
 ### 7.3 Regras de ownership (críticas)
 
@@ -196,29 +194,44 @@ metaway-petshop-fullstack/
 
 ## 8. Modelo de Dados
 
-### 8.1 Diagrama de relacionamentos
+### 8.1 Princípios de modelagem
+
+- Modelo relacional em 3FN, com separação entre autenticação/autorização e dados de domínio.
+- Fonte única para identidade de login: `users.cpf`.
+- Fonte única para dados cadastrais do cliente: `clients`.
+- Ownership derivado exclusivamente da cadeia de FKs (`user -> client -> pet -> appointment`).
+- Evitar duplicidade de atributos entre tabelas para reduzir inconsistência e custo de manutenção.
+
+### 8.2 Diagrama lógico de relacionamentos
 
 ```
-User (1) ──── (0..1) Client
-Client (1) ──── (N) Address
-Client (1) ──── (N) Contact
-Client (1) ──── (N) Pet
-Pet    (N) ──── (1) Breed
-Pet    (1) ──── (N) Appointment
+User (role=ADMIN) (1)     -> (0)   Client
+User (role=CLIENTE) (1)   -> (1)   Client
+Client (0..1)             -> (1)   User(role=CLIENTE)
+
+Client (1) -> (N) Address
+Client (1) -> (N) Contact
+Client (1) -> (N) Pet
+Pet    (N) -> (1) Breed
+Pet    (1) -> (N) Appointment
 ```
 
-### 8.2 Definição das entidades
+Observação: um `Client` pode existir sem `User` vinculado até o momento de criação da credencial de acesso.
+
+### 8.3 Entidades e atributos
 
 #### User
 
 | Campo | Tipo | Restrições |
 |-------|------|------------|
 | `id` | UUID / int | PK |
-| `cpf` | string | **UNIQUE**, NOT NULL — usado como username no login |
-| `name` | string | NOT NULL |
+| `cpf` | string | **UNIQUE**, NOT NULL — username do login |
 | `role` | enum | `ADMIN` \| `CLIENTE`, NOT NULL |
-| `password_hash` | string | NOT NULL (nunca armazenar senha em texto) |
-| `client_id` | FK → Client | **nullable** para ADMIN; **obrigatório** para CLIENTE |
+| `password_hash` | string | NOT NULL |
+| `client_id` | FK → `clients.id` | UNIQUE, NULL para ADMIN, obrigatório para CLIENTE |
+| `name` | string | obrigatório para ADMIN; nulo para CLIENTE (nome vem de `clients.name`) |
+| `created_at` | datetime | NOT NULL, default `now()` |
+| `updated_at` | datetime | NOT NULL, default `now()`, atualizado automaticamente |
 
 #### Client
 
@@ -226,68 +239,86 @@ Pet    (1) ──── (N) Appointment
 |-------|------|------------|
 | `id` | UUID / int | PK |
 | `name` | string | NOT NULL |
-| `cpf` | string | UNIQUE, opcional (pode constar, conforme PDF) |
-| `photo_url` | string | nullable (desejável) |
-| `created_at` | datetime | NOT NULL, default=now |
+| `photo_url` | string | NULLABLE |
+| `created_at` | datetime | NOT NULL, default `now()` |
+| `updated_at` | datetime | NOT NULL, default `now()`, atualizado automaticamente |
 
 #### Address
 
 | Campo | Tipo | Restrições |
 |-------|------|------------|
 | `id` | UUID / int | PK |
-| `client_id` | FK → Client | NOT NULL |
+| `client_id` | FK → `clients.id` | NOT NULL |
 | `logradouro` | string | NOT NULL |
-| `cidade` | string | NOT NULL |
+| `numero` | string | NOT NULL |
+| `complemento` | string | NULLABLE |
 | `bairro` | string | NOT NULL |
-| `complemento` | string | nullable |
-| `tag` | string | NOT NULL (ex: "casa", "trabalho") |
+| `cidade` | string | NOT NULL |
+| `estado` | string(2) | NOT NULL — UF (ex: SP, RJ) |
+| `cep` | string | NOT NULL |
+| `tag` | string | NOT NULL |
+| `created_at` | datetime | NOT NULL, default `now()` |
+| `updated_at` | datetime | NOT NULL, default `now()`, atualizado automaticamente |
 
 #### Contact
 
 | Campo | Tipo | Restrições |
 |-------|------|------------|
 | `id` | UUID / int | PK |
-| `client_id` | FK → Client | NOT NULL |
+| `client_id` | FK → `clients.id` | NOT NULL |
 | `tag` | string | NOT NULL |
 | `tipo` | enum | `EMAIL` \| `TELEFONE`, NOT NULL |
 | `valor` | string | NOT NULL |
+| `created_at` | datetime | NOT NULL, default `now()` |
+| `updated_at` | datetime | NOT NULL, default `now()`, atualizado automaticamente |
 
 #### Breed
 
 | Campo | Tipo | Restrições |
 |-------|------|------------|
 | `id` | UUID / int | PK |
-| `descricao` | string | NOT NULL |
+| `descricao` | string | NOT NULL, UNIQUE |
+| `created_at` | datetime | NOT NULL, default `now()` |
+| `updated_at` | datetime | NOT NULL, default `now()`, atualizado automaticamente |
 
 #### Pet
 
 | Campo | Tipo | Restrições |
 |-------|------|------------|
 | `id` | UUID / int | PK |
-| `client_id` | FK → Client | NOT NULL |
-| `breed_id` | FK → Breed | NOT NULL |
+| `client_id` | FK → `clients.id` | NOT NULL |
+| `breed_id` | FK → `breeds.id` | NOT NULL |
 | `name` | string | NOT NULL |
 | `birth_date` | date | NOT NULL |
-| `photo_url` | string | nullable (desejável) |
+| `photo_url` | string | NULLABLE |
+| `created_at` | datetime | NOT NULL, default `now()` |
+| `updated_at` | datetime | NOT NULL, default `now()`, atualizado automaticamente |
 
 #### Appointment (Atendimento)
 
 | Campo | Tipo | Restrições |
 |-------|------|------------|
 | `id` | UUID / int | PK |
-| `pet_id` | FK → Pet | NOT NULL |
+| `pet_id` | FK → `pets.id` | NOT NULL |
 | `descricao` | string | NOT NULL |
 | `valor` | decimal | NOT NULL |
 | `data` | datetime | NOT NULL |
+| `status` | enum | `AGENDADO` \| `EM_ANDAMENTO` \| `CONCLUIDO` \| `CANCELADO`, NOT NULL, default `AGENDADO` |
+| `created_at` | datetime | NOT NULL, default `now()` |
+| `updated_at` | datetime | NOT NULL, default `now()`, atualizado automaticamente |
 
-### 8.3 Restrições importantes
+### 8.4 Regras de integridade e consistência
 
-- `User.cpf` deve ser **único** em toda a tabela.
-- Se `Client.cpf` existir, deve ser **único** e consistente com `User.cpf` do perfil CLIENTE.
-- `User.client_id` vincula o login ao cadastro de cliente — base da regra de ownership.
-- `Pet.client_id` e `Appointment.pet_id` são obrigatórios — cadeia de ownership.
-- Ownership é garantido **no backend** (não apenas no frontend).
-- Fotos (`photo_url`) são campos opcionais (desejável do PDF).
+- `users.cpf` é único e obrigatório.
+- `users.client_id` é único para garantir no máximo um usuário de login por cliente.
+- `users.role = CLIENTE` exige `users.client_id` preenchido.
+- `users.role = ADMIN` exige `users.client_id = NULL`.
+- `users.role = CLIENTE` exige `users.name = NULL`.
+- `users.role = ADMIN` exige `users.name` preenchido.
+- `pets.client_id` e `appointments.pet_id` são obrigatórios para manter a cadeia de ownership.
+- `appointments.status` padrão `AGENDADO`; valores válidos: `AGENDADO`, `EM_ANDAMENTO`, `CONCLUIDO`, `CANCELADO`.
+- Todas as entidades possuem `created_at` (imutável) e `updated_at` (atualizado automaticamente a cada modificação).
+- Ownership deve ser validado no backend; frontend não é controle de segurança.
 
 ---
 
@@ -327,18 +358,20 @@ Pet    (1) ──── (N) Appointment
 
 - **Admin**: CRUD de endereços de qualquer cliente.
 - **Cliente**:
-  - **Visualizar** seus endereços.
-  - **Alterar** seus endereços.
-  - **Não pode** criar nem excluir endereços.
-- Campos: `logradouro`, `cidade`, `bairro`, `complemento` (opcional), `tag`.
+  - **Criar** endereços para si (`POST /clients/me/addresses`).
+  - **Visualizar** seus endereços (`GET /clients/me/addresses`).
+  - **Alterar** seus endereços (`PATCH /addresses/{id}` com ownership).
+  - **Excluir** seus endereços (`DELETE /addresses/{id}` com ownership).
+- Campos: `logradouro`, `numero`, `complemento` (opcional), `bairro`, `cidade`, `estado` (UF), `cep`, `tag`.
 
 ### RF-06 — Contatos do Cliente
 
 - **Admin**: CRUD de contatos de qualquer cliente.
 - **Cliente**:
-  - **Visualizar** seus contatos.
-  - **Alterar** seus contatos.
-  - **Não pode** criar nem excluir contatos.
+  - **Criar** contatos para si (`POST /clients/me/contacts`).
+  - **Visualizar** seus contatos (`GET /clients/me/contacts`).
+  - **Alterar** seus contatos (`PATCH /contacts/{id}` com ownership).
+  - **Excluir** seus contatos (`DELETE /contacts/{id}` com ownership).
 - Campos: `tag`, `tipo` (email/telefone), `valor`.
 
 ### RF-07 — Raças
@@ -351,19 +384,19 @@ Pet    (1) ──── (N) Appointment
 
 - **Admin**: CRUD total.
 - **Cliente**:
-  - **Visualizar** seus pets.
-  - **Alterar** seus pets.
-  - **Não pode** criar nem excluir pets.
+  - **Criar** pets para si (`POST /pets` com ownership — `client_id` deve ser o próprio).
+  - **Visualizar** seus pets (`GET /pets` filtra por ownership).
+  - **Alterar** seus pets (`PATCH /pets/{id}` com ownership).
+  - **Excluir** seus pets (`DELETE /pets/{id}` com ownership).
 - Campos: `client_id`, `breed_id`, `birth_date`, `name`.
 
 ### RF-09 — Atendimentos
 
 - **Admin**: CRUD total.
 - **Cliente**:
-  - **Visualizar** atendimentos dos seus pets.
-  - **Alterar** atendimentos dos seus pets.
-  - **Não pode** criar nem excluir atendimentos.
-- Campos: `pet_id`, `descricao`, `valor`, `data`.
+  - **Visualizar** atendimentos dos seus pets (somente leitura).
+  - **Não pode** criar, alterar nem excluir atendimentos.
+- Campos: `pet_id`, `descricao`, `valor`, `data`, `status`.
 
 ### RF-10 — Upload de fotos (desejável)
 
@@ -424,21 +457,23 @@ Pet    (1) ──── (N) Appointment
 
 | Método | Rota | Descrição | Auth |
 |--------|------|-----------|------|
-| POST | `/clients/{client_id}/addresses` | Criar endereço | Admin |
+| POST | `/clients/{client_id}/addresses` | Criar endereço para cliente | Admin |
+| POST | `/clients/me/addresses` | Criar meu endereço | Cliente |
 | GET | `/clients/{client_id}/addresses` | Listar endereços do cliente | Admin |
 | GET | `/clients/me/addresses` | Listar meus endereços | Cliente |
 | PATCH | `/addresses/{id}` | Atualizar endereço | Admin ou dono |
-| DELETE | `/addresses/{id}` | Excluir endereço | Admin |
+| DELETE | `/addresses/{id}` | Excluir endereço | Admin ou dono |
 
 ### 10.6 Contacts
 
 | Método | Rota | Descrição | Auth |
 |--------|------|-----------|------|
-| POST | `/clients/{client_id}/contacts` | Criar contato | Admin |
+| POST | `/clients/{client_id}/contacts` | Criar contato para cliente | Admin |
+| POST | `/clients/me/contacts` | Criar meu contato | Cliente |
 | GET | `/clients/{client_id}/contacts` | Listar contatos do cliente | Admin |
 | GET | `/clients/me/contacts` | Listar meus contatos | Cliente |
 | PATCH | `/contacts/{id}` | Atualizar contato | Admin ou dono |
-| DELETE | `/contacts/{id}` | Excluir contato | Admin |
+| DELETE | `/contacts/{id}` | Excluir contato | Admin ou dono |
 
 ### 10.7 Breeds
 
@@ -454,11 +489,11 @@ Pet    (1) ──── (N) Appointment
 
 | Método | Rota | Descrição | Auth |
 |--------|------|-----------|------|
-| POST | `/pets` | Criar pet | Admin |
+| POST | `/pets` | Criar pet | Admin + Cliente (ownership) |
 | GET | `/pets` | Listar pets (Admin: todos; Cliente: próprios) | Admin + Cliente |
 | GET | `/pets/{id}` | Detalhe de um pet | Admin + Cliente (ownership) |
 | PATCH | `/pets/{id}` | Atualizar pet | Admin + Cliente (ownership) |
-| DELETE | `/pets/{id}` | Excluir pet | Admin |
+| DELETE | `/pets/{id}` | Excluir pet | Admin ou dono |
 
 ### 10.9 Appointments
 
@@ -467,7 +502,7 @@ Pet    (1) ──── (N) Appointment
 | POST | `/appointments` | Criar atendimento | Admin |
 | GET | `/appointments` | Listar (Admin: todos; Cliente: de seus pets) | Admin + Cliente |
 | GET | `/appointments/{id}` | Detalhe de um atendimento | Admin + Cliente (ownership) |
-| PATCH | `/appointments/{id}` | Atualizar atendimento | Admin + Cliente (ownership) |
+| PATCH | `/appointments/{id}` | Atualizar atendimento | Admin |
 | DELETE | `/appointments/{id}` | Excluir atendimento | Admin |
 
 ### 10.10 Upload de Fotos (desejável)
@@ -562,7 +597,7 @@ docker compose -f infra/docker-compose.yml up --build
 ### 13.2 Migration inicial
 
 - Todas as tabelas com FKs e constraints.
-- Índices em campos de busca frequente (CPF, client_id).
+- Índices em campos de busca frequente (`users.cpf` e FKs como `client_id`/`pet_id`).
 
 ### 13.3 Seed mínimo
 
@@ -602,11 +637,9 @@ docker compose -f infra/docker-compose.yml up --build
 |------|--------|-----------|
 | Login | Público | CPF + senha |
 | Dashboard | Ambos | Boas-vindas + perfil + atalhos |
-| Meu Perfil | Cliente | Visualizar e editar dados pessoais |
-| Meus Endereços | Cliente | Listar e editar endereços |
-| Meus Contatos | Cliente | Listar e editar contatos |
-| Meus Pets | Cliente | Listar e editar pets |
-| Meus Atendimentos | Cliente | Listar e editar atendimentos dos seus pets |
+| Meu Perfil | Cliente | Visualizar e editar dados pessoais, endereços e contatos (CRUD) |
+| Meus Pets | Cliente | Listar, criar, editar e excluir pets |
+| Meus Atendimentos | Cliente | Visualizar atendimentos dos seus pets (somente leitura) |
 | Clientes | Admin | Listar, criar, editar, excluir |
 | Pets | Admin | Listar, criar, editar, excluir |
 | Raças | Admin | CRUD completo |
@@ -624,7 +657,7 @@ docker compose -f infra/docker-compose.yml up --build
 - Guard de rota exigindo token válido.
 - Menus e rotas condicionados por `role`.
 - Rotas de Admin inacessíveis para Cliente.
-- Telas de Cliente não exibem botões de criar/excluir (apenas visualizar e editar).
+- Telas de Cliente exibem botões de criar/editar/excluir para endereços, contatos e pets; atendimentos são somente leitura.
 
 ### 15.4 Design System (Design Tokens)
 
@@ -705,7 +738,7 @@ src/components/
   - Login: sucesso + senha inválida + CPF inexistente.
   - RBAC: Admin acessa tudo; Cliente bloqueado em endpoints Admin-only.
   - Ownership: Cliente não acessa dados de outro cliente → 403.
-  - Permissão: Cliente não pode criar/excluir registros → 403.
+  - Permissão: Cliente não pode criar/alterar/excluir atendimentos → 403.
   - CRUD: fluxos principais de cada entidade.
 
 ### 16.2 Frontend (Vitest)
@@ -797,11 +830,11 @@ uv run pytest              # Testes
 
 - Users (Admin: CRUD completo).
 - Clients (Admin: CRUD completo + Cliente: GET/PATCH `/me`).
-- Addresses (Admin: CRUD + Cliente: GET/PATCH próprios).
-- Contacts (Admin: CRUD + Cliente: GET/PATCH próprios).
+- Addresses (Admin: CRUD + Cliente: CRUD próprios).
+- Contacts (Admin: CRUD + Cliente: CRUD próprios).
 - Breeds (Admin: CRUD + Cliente: GET).
-- Pets (Admin: CRUD + Cliente: GET/PATCH próprios).
-- Appointments (Admin: CRUD + Cliente: GET/PATCH de seus pets).
+- Pets (Admin: CRUD + Cliente: CRUD próprios).
+- Appointments (Admin: CRUD + Cliente: GET de seus pets).
 
 **Commits**: `feat(api): implement users endpoints`, `feat(api): implement clients endpoints`, `feat(api): implement addresses and contacts endpoints`, `feat(api): implement breeds endpoints`, `feat(api): implement pets endpoints`, `feat(api): implement appointments endpoints`
 
@@ -844,9 +877,9 @@ uv run pytest              # Testes
 - [ ] Login com CPF + senha gera JWT válido.
 - [ ] JWT autoriza no Swagger (botão Authorize).
 - [ ] Admin faz CRUD completo em todos os recursos.
-- [ ] Cliente consegue apenas READ + UPDATE dos seus dados.
-- [ ] Cliente **não** consegue criar registros → 403.
-- [ ] Cliente **não** consegue excluir registros → 403.
+- [ ] Cliente consegue CRUD de endereços, contatos e pets próprios.
+- [ ] Cliente consegue apenas READ de atendimentos dos seus pets.
+- [ ] Cliente **não** consegue criar/alterar/excluir atendimentos → 403.
 - [ ] Cliente não acessa dados de outro cliente → 403.
 
 ### 19.3 Testes
@@ -871,10 +904,10 @@ uv run pytest              # Testes
 
 | # | Risco / Decisão | Posição adotada |
 |---|-----------------|-----------------|
-| 1 | **Consistência CPF User ↔ Client** | Fonte única em `User.cpf`. Campo `Client.cpf` opcional; se existir, deve ser consistente. |
+| 1 | **Fonte única de identidade (CPF)** | `users.cpf` é a única fonte de login; `clients` não armazena CPF para evitar redundância e inconsistência. |
 | 2 | **Política de erro ownership** | Retornar **403 Forbidden** (mais didático para avaliação do desafio). |
 | 3 | **ID surrogate vs CPF como PK de User** | Usar `id` surrogate (UUID/int) como PK + `cpf` como UNIQUE index. |
-| 4 | **Escopo de permissões do Cliente** | Seguir literalmente o PDF: Cliente = READ + UPDATE. Sem CREATE/DELETE. |
+| 4 | **Escopo de permissões do Cliente** | Permissões granulares: CRUD completo para endereços, contatos e pets próprios; somente leitura para atendimentos. |
 | 5 | **Prefixo de API** | `/api/v1` para demonstrar versionamento. |
 | 6 | **Armazenamento de fotos** | Disco local com volume Docker (simples e adequado para desafio). |
 | 7 | **Versão Python** | 3.13.9 fixa, conforme definição do projeto. |

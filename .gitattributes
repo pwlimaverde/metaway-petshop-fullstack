@@ -1,0 +1,5 @@
+# Garante que scripts shell sempre usem LF, mesmo no Windows
+*.sh text eol=lf
+
+# Dockerfile não precisa forçar, mas é boa prática
+Dockerfile text eol=lf

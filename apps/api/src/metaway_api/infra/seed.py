@@ -4,8 +4,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from metaway_api.domain.enums import UserRole
+from metaway_api.domain.validators import validate_cpf
 from metaway_api.infra.models import Breed, User
-from metaway_api.infra.security import hash_password
+from metaway_api.infra.security import hash_password, validate_password_strength
 from metaway_api.settings import get_settings
 
 DEFAULT_BREEDS = [
@@ -22,16 +23,16 @@ DEFAULT_BREEDS = [
 
 async def seed_initial_data(session: AsyncSession) -> None:
     settings = get_settings()
+    admin_seed_cpf = validate_cpf(settings.admin_seed_cpf)
+    validate_password_strength(settings.admin_seed_password)
     has_changes = False
 
-    result = await session.execute(
-        select(User).where(User.cpf == settings.admin_seed_cpf)
-    )
+    result = await session.execute(select(User).where(User.cpf == admin_seed_cpf))
     admin_user = result.scalar_one_or_none()
     if admin_user is None:
         session.add(
             User(
-                cpf=settings.admin_seed_cpf,
+                cpf=admin_seed_cpf,
                 name=settings.admin_seed_name,
                 role=UserRole.ADMIN,
                 password_hash=hash_password(settings.admin_seed_password),

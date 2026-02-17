@@ -12,6 +12,121 @@ cd "$PROJECT_ROOT"
 echo -e "\033[0;36m--- Inicializando ambiente Metaway Petshop ---\033[0m"
 echo -e "\033[0;90mDiretório do projeto: $(pwd)\033[0m"
 
+# Detectar sistema operacional
+OS_TYPE="linux"
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    OS_TYPE="mac"
+fi
+
+NEEDS_RESTART=false
+
+# 0. Verificar e instalar ferramentas de desenvolvimento
+echo -e "\n\033[0;36m>>> Verificando ferramentas de desenvolvimento...\033[0m"
+
+# --- uv ---
+if command -v uv &> /dev/null; then
+    echo -e "\033[0;32m[OK] uv encontrado: $(uv --version)\033[0m"
+else
+    echo -e "\033[0;33m[INSTALL] uv não encontrado. Instalando...\033[0m"
+    if curl -LsSf https://astral.sh/uv/install.sh | sh 2>/dev/null; then
+        # Atualizar PATH para a sessão atual
+        export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+        if command -v uv &> /dev/null; then
+            echo -e "\033[0;32m[OK] uv instalado: $(uv --version)\033[0m"
+        else
+            NEEDS_RESTART=true
+            echo -e "\033[0;33m[AVISO] uv instalado, mas será disponível após reiniciar o terminal.\033[0m"
+        fi
+    else
+        echo -e "\033[0;33m[AVISO] Falha ao instalar uv. Instale manualmente:\033[0m"
+        echo -e "\033[0;90m   curl -LsSf https://astral.sh/uv/install.sh | sh\033[0m"
+    fi
+fi
+
+# --- Node.js ---
+if command -v node &> /dev/null; then
+    echo -e "\033[0;32m[OK] Node.js encontrado: $(node --version)\033[0m"
+else
+    echo -e "\033[0;33m[INSTALL] Node.js não encontrado. Instalando...\033[0m"
+    NODE_INSTALLED=false
+
+    if [ "$OS_TYPE" = "mac" ]; then
+        if command -v brew &> /dev/null; then
+            if brew install node@20 2>/dev/null; then
+                NODE_INSTALLED=true
+            fi
+        else
+            echo -e "\033[0;90m   Homebrew não encontrado. Instale via: https://brew.sh\033[0m"
+        fi
+    else
+        # Linux — tentar via package manager
+        if command -v apt-get &> /dev/null; then
+            if curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - 2>/dev/null && sudo apt-get install -y nodejs 2>/dev/null; then
+                NODE_INSTALLED=true
+            fi
+        elif command -v dnf &> /dev/null; then
+            if sudo dnf install -y nodejs 2>/dev/null; then
+                NODE_INSTALLED=true
+            fi
+        fi
+    fi
+
+    if $NODE_INSTALLED && command -v node &> /dev/null; then
+        echo -e "\033[0;32m[OK] Node.js instalado: $(node --version)\033[0m"
+    else
+        NEEDS_RESTART=true
+        echo -e "\033[0;33m[AVISO] Falha ao instalar Node.js automaticamente. Instale manualmente:\033[0m"
+        if [ "$OS_TYPE" = "mac" ]; then
+            echo -e "\033[0;90m   brew install node@20\033[0m"
+        else
+            echo -e "\033[0;90m   https://nodejs.org/ ou use nvm: curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.0/install.sh | bash\033[0m"
+        fi
+    fi
+fi
+
+# --- make ---
+if command -v make &> /dev/null; then
+    echo -e "\033[0;32m[OK] make encontrado.\033[0m"
+else
+    echo -e "\033[0;33m[INSTALL] make não encontrado. Instalando...\033[0m"
+    MAKE_INSTALLED=false
+
+    if [ "$OS_TYPE" = "mac" ]; then
+        if xcode-select --install 2>/dev/null; then
+            MAKE_INSTALLED=true
+        fi
+    else
+        if command -v apt-get &> /dev/null; then
+            if sudo apt-get install -y make 2>/dev/null; then
+                MAKE_INSTALLED=true
+            fi
+        elif command -v dnf &> /dev/null; then
+            if sudo dnf install -y make 2>/dev/null; then
+                MAKE_INSTALLED=true
+            fi
+        fi
+    fi
+
+    if $MAKE_INSTALLED && command -v make &> /dev/null; then
+        echo -e "\033[0;32m[OK] make instalado.\033[0m"
+    else
+        NEEDS_RESTART=true
+        echo -e "\033[0;33m[AVISO] Falha ao instalar make automaticamente. Instale manualmente:\033[0m"
+        if [ "$OS_TYPE" = "mac" ]; then
+            echo -e "\033[0;90m   xcode-select --install\033[0m"
+        else
+            echo -e "\033[0;90m   sudo apt install make\033[0m"
+        fi
+    fi
+fi
+
+if $NEEDS_RESTART; then
+    echo ""
+    echo -e "\033[0;33mAlgumas ferramentas foram instaladas e podem exigir reinício do terminal.\033[0m"
+else
+    echo -e "\033[0;32m[OK] Todas as ferramentas de desenvolvimento estão disponíveis.\033[0m"
+fi
+
 # 1. Verificar e criar .env
 echo -e "\n\033[0;36m>>> Verificando configuração de ambiente (.env)...\033[0m"
 if [ ! -f ".env" ]; then
@@ -74,13 +189,15 @@ if [ $? -eq 0 ]; then
 
     echo -e "\n\033[0;32mSetup concluído com sucesso!\033[0m"
     echo "=============================================="
-    echo "Swagger API:   http://localhost:8000/docs"
-    echo "Healthcheck:   http://localhost:8000/api/v1/health"
+    echo "Frontend:      http://localhost"
+    echo "Swagger API:   http://localhost/docs"
+    echo "Healthcheck:   http://localhost/api/v1/health"
     echo "=============================================="
     echo "Comandos úteis:"
     echo "   Logs API:      ./infra/scripts/compose.sh logs -f api"
     echo "   Logs Geral:    ./infra/scripts/compose.sh logs -f"
     echo "   Derrubar:      ./infra/scripts/compose.sh down"
+    echo "   Lint + Testes: make lint && make test"
 else
     echo -e "\033[0;31m[ERRO] Falha ao subir os containers.\033[0m"
     exit 1

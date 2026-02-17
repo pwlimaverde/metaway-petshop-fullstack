@@ -2,11 +2,7 @@ from sqlalchemy import select
 
 from metaway_api.domain.enums import UserRole
 from metaway_api.infra.models import Breed, User
-from metaway_api.infra.repositories import (
-    AppointmentRepository,
-    ClientRepository,
-    UserRepository,
-)
+from metaway_api.infra.repositories import AppointmentRepository, UserRepository
 from metaway_api.infra.seed import DEFAULT_BREEDS, seed_initial_data
 from metaway_api.infra.seed_cli import main as seed_cli_main
 from metaway_api.settings import get_settings
@@ -42,8 +38,6 @@ async def test_seed_is_idempotent(session_factory) -> None:
 
 async def test_repository_helpers(session_factory) -> None:
     async with session_factory() as session:
-        client_repo = ClientRepository(session)
-        assert await client_repo.get_by_cpf("00000000000") is None
         appointment_repo = AppointmentRepository(session)
         assert await appointment_repo.list_by_pet_ids([]) == []
 

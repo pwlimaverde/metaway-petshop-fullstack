@@ -60,10 +60,6 @@ class UserRepository(BaseRepository[User]):
 class ClientRepository(BaseRepository[Client]):
     model = Client
 
-    async def get_by_cpf(self, cpf: str) -> Client | None:
-        result = await self.session.execute(select(Client).where(Client.cpf == cpf))
-        return result.scalar_one_or_none()
-
 
 class AddressRepository(BaseRepository[Address]):
     model = Address

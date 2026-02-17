@@ -2,58 +2,116 @@
 export
 
 COMPOSE_FILE = infra/docker-compose.yml
+COMPOSE_CMD  = docker compose --env-file .env -f $(COMPOSE_FILE)
+AUTO_MIGRATION_MSG = auto_$(shell uv run --directory $(API_DIR) python -c "from datetime import datetime as d; n=d.now(); print(f'{n.year:04d}{n.month:02d}{n.day:02d}_{n.hour:02d}{n.minute:02d}{n.second:02d}')")
+MIGRATION_MSG ?= $(AUTO_MIGRATION_MSG)
+DOCKER_HOST_NO_SCHEME := $(patsubst ssh://%,%,$(DOCKER_HOST))
+DOCKER_HOST_NAME := $(lastword $(subst @, ,$(DOCKER_HOST_NO_SCHEME)))
+ALEMBIC_DB_HOST ?= $(if $(DOCKER_HOST),$(DOCKER_HOST_NAME),localhost)
+ALEMBIC_DATABASE_URL ?= $(if $(DATABASE_URL),$(subst @db:,@$(ALEMBIC_DB_HOST):,$(DATABASE_URL)),postgresql+asyncpg://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(ALEMBIC_DB_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB))
 
-.PHONY: help up down logs build migrate api-format api-lint api-test web-lint web-format web-test test lint
+# Caminhos dos sub-projetos
+API_DIR = apps/api
+WEB_DIR = apps/web
+
+.PHONY: help up down logs build rebuild-web rebuild-api rebuild-front rebuild-back migrate makemigrations \
+        api-format api-lint api-test \
+        web-lint web-format web-test \
+        test lint format
 
 help:
-	@echo "Targets:"
+	@echo "=== Comandos Docker ==="
 	@echo "  up          - Build and start full stack"
 	@echo "  down        - Stop and remove containers"
 	@echo "  logs        - Follow compose logs"
 	@echo "  build       - Build all services"
-	@echo "  migrate     - Run Alembic migrations in api container"
+	@echo "  rebuild-web - Rebuild and start only web service"
+	@echo "  rebuild-api - Rebuild and start only api service"
+	@echo "  rebuild-front - Alias for rebuild-web"
+	@echo "  rebuild-back  - Alias for rebuild-api"
+	@echo "  migrate         - Run Alembic migrations (upgrade head)"
+	@echo "  makemigrations  - Generate new Alembic revision (autogenerate)"
+	@echo ""
+	@echo "=== Backend (local via uv) ==="
 	@echo "  api-format  - Format and auto-fix backend code"
 	@echo "  api-lint    - Run backend lint"
 	@echo "  api-test    - Run backend tests"
+	@echo ""
+	@echo "=== Frontend (local via npm) ==="
 	@echo "  web-lint    - Run frontend lint"
 	@echo "  web-format  - Check frontend formatting"
 	@echo "  web-test    - Run frontend tests"
+	@echo ""
+	@echo "=== Atalhos ==="
 	@echo "  test        - Run backend + frontend tests"
 	@echo "  lint        - Run backend + frontend lint"
+	@echo "  format      - Format backend + frontend code"
 
+# --------------------------------------------------
+# Docker
+# --------------------------------------------------
 up:
-	docker compose --env-file .env -f $(COMPOSE_FILE) up -d --build
+	$(COMPOSE_CMD) up -d --build
 
 down:
-	docker compose --env-file .env -f $(COMPOSE_FILE) down
+	$(COMPOSE_CMD) down
 
 logs:
-	docker compose --env-file .env -f $(COMPOSE_FILE) logs -f
+	$(COMPOSE_CMD) logs -f
 
 build:
-	docker compose --env-file .env -f $(COMPOSE_FILE) build
+	$(COMPOSE_CMD) build
+
+rebuild-web:
+	$(COMPOSE_CMD) up -d --build web
+
+rebuild-api:
+	$(COMPOSE_CMD) up -d --build api
+
+rebuild-front: rebuild-web
+
+rebuild-back: rebuild-api
 
 migrate:
-	docker compose --env-file .env -f $(COMPOSE_FILE) exec api alembic upgrade head
+	$(COMPOSE_CMD) exec api alembic upgrade head
 
+makemigrations:
+ifeq ($(OS),Windows_NT)
+	set "DATABASE_URL=$(ALEMBIC_DATABASE_URL)" && uv run --directory $(API_DIR) alembic revision --autogenerate -m "$(or $(msg),$(MIGRATION_MSG))"
+else
+	DATABASE_URL="$(ALEMBIC_DATABASE_URL)" uv run --directory $(API_DIR) alembic revision --autogenerate -m "$(or $(msg),$(MIGRATION_MSG))"
+endif
+
+# --------------------------------------------------
+# Backend — executado localmente com uv
+# --------------------------------------------------
 api-format:
-	docker compose --env-file .env -f $(COMPOSE_FILE) exec api sh -c "ruff format . && ruff check . --fix"
+	cd $(API_DIR) && uv run ruff format .
+	cd $(API_DIR) && uv run ruff check . --fix
 
 api-lint:
-	docker compose --env-file .env -f $(COMPOSE_FILE) exec api ruff check .
+	cd $(API_DIR) && uv run ruff check .
 
 api-test:
-	docker compose --env-file .env -f $(COMPOSE_FILE) exec api pytest
+	cd $(API_DIR) && uv run pytest
 
+# --------------------------------------------------
+# Frontend — executado localmente com npm
+# --------------------------------------------------
 web-lint:
-	docker compose --env-file .env -f $(COMPOSE_FILE) exec web npx eslint .
+	npm run --prefix $(WEB_DIR) lint
 
 web-format:
-	docker compose --env-file .env -f $(COMPOSE_FILE) exec web npx prettier --check .
+	npm run --prefix $(WEB_DIR) format
 
 web-test:
-	docker compose --env-file .env -f $(COMPOSE_FILE) exec web npx vitest run
+	npm run --prefix $(WEB_DIR) test
 
+# --------------------------------------------------
+# Atalhos combinados
+# --------------------------------------------------
 test: api-test web-test
 
 lint: api-lint web-lint
+
+format: api-format web-format

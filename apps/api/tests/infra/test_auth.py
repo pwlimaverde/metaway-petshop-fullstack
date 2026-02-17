@@ -23,7 +23,7 @@ def _make_user(
     client_id: int | None = None,
 ) -> User:
     user = User(
-        cpf="00000000000",
+        cpf="52998224725",
         name="Test",
         role=role,
         password_hash=hash_password("x"),

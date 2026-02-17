@@ -22,6 +22,18 @@ def upgrade() -> None:
         "breeds",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("descricao", sa.String(length=120), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("descricao"),
     )
@@ -31,7 +43,6 @@ def upgrade() -> None:
         "clients",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("name", sa.String(length=255), nullable=False),
-        sa.Column("cpf", sa.String(length=14), nullable=True),
         sa.Column("photo_url", sa.String(length=512), nullable=True),
         sa.Column(
             "created_at",
@@ -39,10 +50,14 @@ def upgrade() -> None:
             server_default=sa.text("now()"),
             nullable=False,
         ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("cpf"),
     )
-    op.create_index("ix_clients_cpf", "clients", ["cpf"], unique=True)
     op.create_index("ix_clients_name", "clients", ["name"], unique=False)
 
     op.create_table(
@@ -50,10 +65,25 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("client_id", sa.Integer(), nullable=False),
         sa.Column("logradouro", sa.String(length=255), nullable=False),
-        sa.Column("cidade", sa.String(length=120), nullable=False),
-        sa.Column("bairro", sa.String(length=120), nullable=False),
+        sa.Column("numero", sa.String(length=20), nullable=False),
         sa.Column("complemento", sa.String(length=255), nullable=True),
+        sa.Column("bairro", sa.String(length=120), nullable=False),
+        sa.Column("cidade", sa.String(length=120), nullable=False),
+        sa.Column("estado", sa.String(length=2), nullable=False),
+        sa.Column("cep", sa.String(length=10), nullable=False),
         sa.Column("tag", sa.String(length=60), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.ForeignKeyConstraint(["client_id"], ["clients.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
@@ -71,6 +101,18 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.Column("valor", sa.String(length=255), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.ForeignKeyConstraint(["client_id"], ["clients.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
@@ -84,6 +126,18 @@ def upgrade() -> None:
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("birth_date", sa.Date(), nullable=False),
         sa.Column("photo_url", sa.String(length=512), nullable=True),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.ForeignKeyConstraint(["breed_id"], ["breeds.id"], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(["client_id"], ["clients.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
@@ -96,7 +150,7 @@ def upgrade() -> None:
         "users",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("cpf", sa.String(length=14), nullable=False),
-        sa.Column("name", sa.String(length=255), nullable=False),
+        sa.Column("name", sa.String(length=255), nullable=True),
         sa.Column(
             "role",
             sa.Enum("ADMIN", "CLIENTE", name="user_role", native_enum=False),
@@ -104,7 +158,27 @@ def upgrade() -> None:
         ),
         sa.Column("password_hash", sa.String(length=255), nullable=False),
         sa.Column("client_id", sa.Integer(), nullable=True),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.ForeignKeyConstraint(["client_id"], ["clients.id"], ondelete="SET NULL"),
+        sa.CheckConstraint(
+            "(role <> 'ADMIN') OR (client_id IS NULL)",
+            name="ck_users_admin_without_client",
+        ),
+        sa.CheckConstraint(
+            "(role <> 'CLIENTE') OR (client_id IS NOT NULL)",
+            name="ck_users_cliente_requires_client",
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("cpf"),
         sa.UniqueConstraint("client_id"),
@@ -118,6 +192,31 @@ def upgrade() -> None:
         sa.Column("descricao", sa.Text(), nullable=False),
         sa.Column("valor", sa.Numeric(precision=10, scale=2), nullable=False),
         sa.Column("data", sa.DateTime(timezone=True), nullable=False),
+        sa.Column(
+            "status",
+            sa.Enum(
+                "AGENDADO",
+                "EM_ANDAMENTO",
+                "CONCLUIDO",
+                "CANCELADO",
+                name="appointment_status",
+                native_enum=False,
+            ),
+            nullable=False,
+            server_default="AGENDADO",
+        ),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.ForeignKeyConstraint(["pet_id"], ["pets.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
@@ -146,7 +245,6 @@ def downgrade() -> None:
     op.drop_table("addresses")
 
     op.drop_index("ix_clients_name", table_name="clients")
-    op.drop_index("ix_clients_cpf", table_name="clients")
     op.drop_table("clients")
 
     op.drop_index("ix_breeds_descricao", table_name="breeds")

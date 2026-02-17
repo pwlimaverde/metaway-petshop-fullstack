@@ -6,9 +6,12 @@ async def test_addresses_admin_crud(client, seed_data, auth_headers) -> None:
         headers=admin,
         json={
             "logradouro": "Rua Nova",
+            "numero": "10",
             "cidade": "Curitiba",
             "bairro": "Centro",
             "complemento": None,
+            "estado": "PR",
+            "cep": "80000000",
             "tag": "casa",
         },
     )
@@ -21,9 +24,7 @@ async def test_addresses_admin_crud(client, seed_data, auth_headers) -> None:
     )
     assert listed.status_code == 200
 
-    deleted = await client.delete(
-        f"/api/v1/addresses/{address_id}", headers=admin
-    )
+    deleted = await client.delete(f"/api/v1/addresses/{address_id}", headers=admin)
     assert deleted.status_code == 204
 
 
@@ -34,13 +35,36 @@ async def test_client_cannot_create_address(client, seed_data, auth_headers) -> 
         headers=headers,
         json={
             "logradouro": "Rua Não Pode",
+            "numero": "5",
             "cidade": "Recife",
             "bairro": "Boa Viagem",
             "complemento": None,
+            "estado": "PE",
+            "cep": "50000000",
             "tag": "casa",
         },
     )
     assert response.status_code == 403
+
+
+async def test_client_can_create_own_address(client, seed_data, auth_headers) -> None:
+    headers = await auth_headers(seed_data["client_cpf"], seed_data["client_password"])
+    response = await client.post(
+        "/api/v1/clients/me/addresses",
+        headers=headers,
+        json={
+            "logradouro": "Rua Cliente",
+            "numero": "22",
+            "cidade": "Florianópolis",
+            "bairro": "Centro",
+            "complemento": None,
+            "estado": "SC",
+            "cep": "88000000",
+            "tag": "apartamento",
+        },
+    )
+    assert response.status_code == 201
+    assert response.json()["client_id"] == seed_data["client_id"]
 
 
 async def test_addresses_ownership(client, seed_data, auth_headers) -> None:
@@ -53,9 +77,12 @@ async def test_addresses_ownership(client, seed_data, auth_headers) -> None:
         headers=admin,
         json={
             "logradouro": "Rua Ownership",
+            "numero": "15",
             "cidade": "SP",
             "bairro": "Centro",
             "complemento": None,
+            "estado": "SP",
+            "cep": "01000000",
             "tag": "casa",
         },
     )
@@ -82,11 +109,9 @@ async def test_addresses_ownership(client, seed_data, auth_headers) -> None:
     )
     assert forbidden.status_code == 403
 
-    # Client cannot delete
-    forbidden_delete = await client.delete(
-        f"/api/v1/addresses/{address_id}", headers=headers
-    )
-    assert forbidden_delete.status_code == 403
+    # Client can delete own
+    deleted = await client.delete(f"/api/v1/addresses/{address_id}", headers=headers)
+    assert deleted.status_code == 204
 
 
 async def test_addresses_not_found_branches(client, seed_data, auth_headers) -> None:
@@ -98,9 +123,12 @@ async def test_addresses_not_found_branches(client, seed_data, auth_headers) -> 
             headers=admin,
             json={
                 "logradouro": "X",
+                "numero": "1",
                 "cidade": "X",
                 "bairro": "X",
                 "complemento": None,
+                "estado": "SP",
+                "cep": "01001000",
                 "tag": "x",
             },
         )
@@ -116,13 +144,3 @@ async def test_addresses_not_found_branches(client, seed_data, auth_headers) -> 
     assert (
         await client.delete("/api/v1/addresses/999999", headers=admin)
     ).status_code == 404
-
-
-async def test_addresses_unlinked_client(
-    client, seed_data, auth_headers, unlinked_client_user
-) -> None:
-    headers = await auth_headers(
-        unlinked_client_user["cpf"], unlinked_client_user["password"]
-    )
-    response = await client.get("/api/v1/clients/me/addresses", headers=headers)
-    assert response.status_code == 404

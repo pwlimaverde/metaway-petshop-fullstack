@@ -45,7 +45,18 @@ Abra o arquivo `.env` recém-criado e verifique a variável `DOCKER_HOST`.
 
 ## 2. Setup Automatizado (Start!) 🚀
 
-Com o `.env` configurado, inicialize o projeto. O script abaixo verifica o Docker, carrega as variáveis e sobe os containers.
+Com o `.env` configurado, inicialize o projeto. O script abaixo cuida de tudo: verifica ferramentas, instala o que falta e sobe os containers.
+
+> **Ferramentas que serão verificadas e instaladas automaticamente:**
+>
+> | Ferramenta  | Finalidade                                | Instalador usado                                             |
+> | :---------- | :---------------------------------------- | :----------------------------------------------------------- |
+> | **Docker**  | Rodar os containers (obrigatório)         | Verificação apenas — deve ser instalado antes                |
+> | **uv**      | Gerenciador Python (lint, testes backend) | Script oficial da Astral                                     |
+> | **Node.js** | Testes e lint do frontend                 | winget (Windows) / brew (Mac) / apt (Linux)                  |
+> | **make**    | Atalhos de Makefile                       | winget ou choco (Windows) / xcode-select (Mac) / apt (Linux) |
+>
+> Se alguma instalação falhar (ex: sem permissão de admin), o script exibe o comando manual e continua normalmente. Pode ser necessário **reiniciar o terminal** após instalações.
 
 ### 🪟 Windows (PowerShell)
 
@@ -62,65 +73,109 @@ chmod +x infra/scripts/setup.sh
 
 **O que este comando faz?**
 
-1. **Configuração Automática (`.env`):** Cria o arquivo `.env` (se não existir) baseado no exemplo e carrega as variáveis de ambiente para a sessão atual.
-2. **Setup do Docker Remoto:** Se `DOCKER_HOST` estiver definido, configura a conexão SSH automaticamente.
-3. **Verificação de Saúde:** Confere se o Docker está rodando e acessível antes de tentar qualquer comando.
-4. **Deploy:** Constrói as imagens (`docker compose build`) e sobe os containers (`docker compose up -d`) garantindo que tudo esteja atualizado.
+1. **Ferramentas de Dev:** Verifica `uv`, `Node.js` e `make` — instala automaticamente o que estiver faltando.
+2. **Configuração (`.env`):** Cria o arquivo `.env` (se não existir) a partir de `.env.example` e carrega as variáveis.
+3. **Docker Remoto:** Se `DOCKER_HOST` estiver definido, configura a conexão SSH.
+4. **Verificação de Saúde:** Confere se o Docker está rodando e acessível.
+5. **Deploy:** Constrói as imagens (`docker compose build`) e sobe os containers (`docker compose up -d`).
 
 ---
 
 ## 3. Comandos do Dia a Dia
 
-Para garantir compatibilidade total (Local e Remoto), **use os scripts wrapper abaixo**. Eles carregam automaticamente as configurações do `.env` (incluindo SSH remoto) antes de executar o comando.
+Todos os comandos abaixo devem ser executados **a partir da raiz do projeto**.
+
+### 📋 Makefile (Atalhos Rápidos)
+
+O jeito mais simples de rodar qualquer operação. Requer `make` instalado.
+
+| Comando               | Descrição                                       |
+| :-------------------- | :---------------------------------------------- |
+| `make up`             | Build e start de todos os serviços (Docker)     |
+| `make down`           | Para e remove os containers                     |
+| `make logs`           | Acompanha os logs em tempo real                 |
+| `make build`          | Build de todas as imagens Docker                |
+| `make rebuild-web`    | Rebuild e start apenas do serviço `web`         |
+| `make rebuild-api`    | Rebuild e start apenas do serviço `api`         |
+| `make rebuild-front`  | Alias para `make rebuild-web`                   |
+| `make rebuild-back`   | Alias para `make rebuild-api`                   |
+| `make migrate`        | Executa as migrations (Alembic upgrade head)    |
+| `make makemigrations` | Gera nova revision Alembic com nome automático (`auto_YYYYMMDD_HHMMSS`) |
+| `make api-lint`       | Lint do backend (Ruff) via Docker               |
+| `make api-format`     | Formatação e auto-fix do backend via Docker     |
+| `make api-test`       | Testes do backend (pytest) via Docker           |
+| `make web-lint`       | Lint do frontend (ESLint) via Docker            |
+| `make web-format`     | Verificação de formatação (Prettier) via Docker |
+| `make web-test`       | Testes do frontend (Vitest) via Docker          |
+| `make lint`           | Lint completo (backend + frontend)              |
+| `make test`           | Testes completos (backend + frontend)           |
+
+### 🐍 Backend (Local, sem Docker)
+
+Requer [uv](https://github.com/astral-sh/uv) instalado. Útil para feedback rápido sem subir containers.
+
+```bash
+# Testes
+uv run --directory apps/api pytest
+uv run --directory apps/api pytest --cov=metaway_api --cov-report=term-missing
+
+# Lint (verificação)
+uv run --directory apps/api ruff check .
+
+# Formatação + auto-fix
+uv run --directory apps/api ruff format .
+uv run --directory apps/api ruff check . --fix
+```
+
+### ⚛️ Frontend (Local, sem Docker)
+
+Requer [Node.js](https://nodejs.org/) 20+. Todos os comandos rodam da **raiz do projeto** usando `--prefix`.
+
+```bash
+# Dev server (hot reload)
+npm --prefix apps/web run dev
+
+# Testes
+npm --prefix apps/web run test
+
+# Lint (ESLint)
+npm --prefix apps/web run lint
+
+# Verificação de formatação (Prettier)
+npm --prefix apps/web run format
+
+# Build de produção
+npm --prefix apps/web run build
+```
 
 ### 🐳 Docker Compose (Via Wrapper)
 
-**Ver logs (Geral)**
+Para compatibilidade com deploy remoto (SSH), use os scripts wrapper que carregam `.env` automaticamente.
 
-- Windows: `.\infra\scripts\compose.ps1 logs -f`
-- Linux/Mac: `./infra/scripts/compose.sh logs -f`
+| Ação                    | Windows (PowerShell)                      | Linux / Mac (Bash)                       |
+| :---------------------- | :---------------------------------------- | :--------------------------------------- |
+| Ver logs (geral)        | `.\infra\scripts\compose.ps1 logs -f`     | `./infra/scripts/compose.sh logs -f`     |
+| Ver logs (apenas API)   | `.\infra\scripts\compose.ps1 logs -f api` | `./infra/scripts/compose.sh logs -f api` |
+| Reiniciar tudo          | `.\infra\scripts\setup.ps1`               | `./infra/scripts/setup.sh`               |
+| Derrubar containers     | `.\infra\scripts\compose.ps1 down`        | `./infra/scripts/compose.sh down`        |
+| Resetar banco (volumes) | `.\infra\scripts\compose.ps1 down -v`     | `./infra/scripts/compose.sh down -v`     |
 
-**Ver logs (Apenas API)**
+> **Nota:** Se preferir rodar `docker compose` manualmente, configure `DOCKER_HOST` no terminal antes, caso use conexão remota.
 
-- Windows: `.\infra\scripts\compose.ps1 logs -f api`
-- Linux/Mac: `./infra/scripts/compose.sh logs -f api`
+### ✅ Verificação Completa (Antes de Commit)
 
-**Reiniciar tudo (Rebuild)**
+Rode lint e testes de ambos os projetos para garantir que tudo está OK.
 
-- Windows: `.\infra\scripts\setup.ps1`
-- Linux/Mac: `./infra/scripts/setup.sh`
-
-**Derrubar containers (Stop & Remove)**
-
-- Windows: `.\infra\scripts\compose.ps1 down`
-- Linux/Mac: `./infra/scripts/compose.sh down`
-
-**Resetar banco de dados (Apagar volumes)**
-
-- Windows: `.\infra\scripts\compose.ps1 down -v`
-- Linux/Mac: `./infra/scripts/compose.sh down -v`
-
-> **Nota para Especialistas:** Se você preferir rodar `docker compose` manualmente, lembre-se de configurar a variável `DOCKER_HOST` no seu terminal antes de executar, caso esteja usando conexão remota.
-
-### 🐍 Backend (Local)
-
-Requer [uv](https://github.com/astral-sh/uv) instalado. Útil para rodar testes rapidamente sem subir o Docker.
-
-**Rodar testes & Lint**
+**Via Makefile (Docker):**
 
 ```bash
-uv run --directory apps/api pytest
-uv run --directory apps/api ruff check .
+make lint && make test
 ```
 
-### ⚛️ Frontend (Local)
-
-Requer Node.js.
+**Via local (sem Docker):**
 
 ```bash
-cd apps/web
-npx vitest run
-npx eslint .
+uv run --directory apps/api ruff check . && uv run --directory apps/api pytest && npm --prefix apps/web run lint && npm --prefix apps/web run test
 ```
 
 ---
@@ -149,26 +204,70 @@ Rode: `chmod +x infra/scripts/setup.sh`
 
 ## Pré-requisitos
 
-| Ferramenta                                     | Versão mínima |
-| :--------------------------------------------- | :------------ |
-| [Docker + Compose](https://www.docker.com/)    | latest        |
-| [uv](https://docs.astral.sh/uv/) _(dev local)_ | latest        |
-| [Node.js](https://nodejs.org/) _(dev local)_   | 20+           |
+| Ferramenta                                  | Versão mínima | Obrigatório? |
+| :------------------------------------------ | :------------ | :----------- |
+| [Docker + Compose](https://www.docker.com/) | latest        | Sim          |
+| [uv](https://docs.astral.sh/uv/)            | latest        | Dev local    |
+| [Node.js + npm](https://nodejs.org/)        | 20+           | Dev local    |
+| [make](https://www.gnu.org/software/make/)  | qualquer      | Recomendado  |
 
-> **Nota:** Docker é obrigatório. `uv` e `Node.js` só são necessários para rodar testes/lint localmente sem Docker.
+> **Nota:** Docker é obrigatório para rodar o projeto. `uv`, `Node.js` e `make` são necessários apenas para desenvolvimento local (testes, lint, formatação).
+
+### Instalação Rápida das Ferramentas de Dev
+
+**uv** (gerenciador Python):
+
+- Windows (PowerShell): `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`
+- Linux / Mac: `curl -LsSf https://astral.sh/uv/install.sh | sh`
+
+**Node.js 20+:**
+
+- Windows: `winget install OpenJS.NodeJS.LTS`
+- Mac: `brew install node@20`
+- Linux: `curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && sudo apt install -y nodejs`
+
+**make:**
+
+- Windows (com Chocolatey): `choco install make`
+- Windows (com winget): `winget install GnuWin32.Make`
+- Mac: `xcode-select --install`
+- Linux (Debian/Ubuntu): `sudo apt install make`
+
+> O script de setup (`setup.ps1` / `setup.sh`) **instala automaticamente** as ferramentas que faltam. Caso a instalação automática falhe (por ex. falta de permissão), ele exibe o comando manual correspondente. Pode ser necessário reiniciar o terminal após a instalação.
 
 ---
 
 ## Acessos
 
-| Serviço         | URL Local                             | URL Remota (Exemplo)      | Credenciais   |
-| :-------------- | :------------------------------------ | :------------------------ | :------------ |
-| **Swagger API** | `http://localhost:8000/docs`          | `http://SEU_IP:8000/docs` | `/auth/token` |
-| **Frontend**    | `http://localhost:80`                 | `http://SEU_IP:80`        | -             |
-| **Healthcheck** | `http://localhost:8000/api/v1/health` | `http://SEU_IP:8000/...`  | -             |
+### Via Gateway (Nginx — Docker)
+
+Quando os containers estão rodando (`make up`), tudo é acessível por uma única porta:
+
+| Serviço          | URL                              | Descrição                      |
+| :--------------- | :------------------------------- | :----------------------------- |
+| **Frontend**     | `http://localhost`               | Aplicação Vue                  |
+| **Swagger API**  | `http://localhost/docs`          | Documentação interativa da API |
+| **Healthcheck**  | `http://localhost/api/v1/health` | Verificação de saúde           |
+| **OpenAPI JSON** | `http://localhost/openapi.json`  | Especificação OpenAPI          |
+
+### Acesso Direto (Dev Local, sem Nginx)
+
+| Serviço         | URL                                   | Descrição                       |
+| :-------------- | :------------------------------------ | :------------------------------ |
+| **Frontend**    | `http://localhost:5173`               | Dev server Vite (`npm run dev`) |
+| **Swagger API** | `http://localhost:8000/docs`          | API rodando via uvicorn         |
+| **Healthcheck** | `http://localhost:8000/api/v1/health` | Verificação de saúde            |
+
+### Login na API
+
+1. Acesse Swagger (`/docs`) e execute `POST /api/v1/auth/login` com:
+   - `username`: CPF (somente dígitos)
+   - `password`: senha
+2. Copie o `access_token` da resposta.
+3. Clique em **Authorize** e informe: `Bearer <access_token>`
 
 **Usuário Admin (Seed):**
-CPF e Senha estão definidos no arquivo `.env` (variáveis `ADMIN_SEED_CPF` e `ADMIN_SEED_PASSWORD`). Altere-os antes do primeiro deploy.
+CPF e Senha estão definidos no `.env` (variáveis `ADMIN_SEED_CPF` e `ADMIN_SEED_PASSWORD`). Altere-os antes do primeiro deploy.
 
 ---
 

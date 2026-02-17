@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from io import BytesIO
 from pathlib import Path
 from uuid import uuid4
 
 from fastapi import HTTPException, UploadFile, status
+from PIL import Image, ImageOps, UnidentifiedImageError
 
 from metaway_api.settings import get_settings
 
@@ -11,6 +13,31 @@ ALLOWED_IMAGE_CONTENT_TYPES = {
     "image/jpeg": ".jpg",
     "image/png": ".png",
 }
+NORMALIZED_IMAGE_SIZE = (512, 512)
+
+
+def _normalize_image(content: bytes, content_type: str) -> bytes:
+    try:
+        with Image.open(BytesIO(content)) as source:
+            fitted = ImageOps.fit(
+                source,
+                NORMALIZED_IMAGE_SIZE,
+                method=Image.Resampling.LANCZOS,
+                centering=(0.5, 0.5),
+            )
+            output = BytesIO()
+            if content_type == "image/png":
+                fitted.convert("RGBA").save(output, format="PNG", optimize=True)
+            else:
+                fitted.convert("RGB").save(
+                    output, format="JPEG", optimize=True, quality=90
+                )
+            return output.getvalue()
+    except UnidentifiedImageError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Formato inválido. Use JPEG ou PNG.",
+        ) from exc
 
 
 def _storage_root() -> Path:
@@ -34,13 +61,14 @@ async def save_image_upload(file: UploadFile, *, resource_folder: str) -> str:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Arquivo excede o tamanho máximo permitido.",
         )
+    normalized_content = _normalize_image(content, file.content_type or "")
 
     root = _storage_root()
     filename = f"{uuid4().hex}{extension}"
     relative_path = Path(resource_folder) / filename
     destination = root / relative_path
     destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.write_bytes(content)
+    destination.write_bytes(normalized_content)
     return relative_path.as_posix()
 
 
