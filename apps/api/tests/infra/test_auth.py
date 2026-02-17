@@ -1,8 +1,8 @@
 from datetime import UTC, datetime, timedelta
 
+import jwt
 import pytest
 from fastapi import HTTPException
-from jose import jwt
 
 from metaway_api.domain.enums import UserRole
 from metaway_api.infra.auth import (
@@ -99,7 +99,7 @@ def test_decode_access_token_invalid_signature() -> None:
             "client_id": None,
             "exp": datetime.now(UTC) + timedelta(minutes=30),
         },
-        "wrong_secret",
+        "wrong_secret_key_that_is_32bytes!",
         algorithm="HS256",
     )
     with pytest.raises(HTTPException) as exc_info:

@@ -232,8 +232,13 @@ async def seed_initial_data(
     settings = get_settings()
     admin_seed_cpf = validate_cpf(settings.admin_seed_cpf)
     demo_client_cpf = validate_cpf(settings.demo_client_cpf)
+    demo_client_password = settings.demo_client_password
+    if demo_client_password is None:
+        raise ValueError(
+            "DEMO_CLIENT_PASSWORD deve ser definido para executar o seed inicial."
+        )
     validate_password_strength(settings.admin_seed_password)
-    validate_password_strength(settings.demo_client_password)
+    validate_password_strength(demo_client_password)
 
     if only_if_empty and not await _is_database_empty(session):
         return
@@ -292,7 +297,7 @@ async def seed_initial_data(
             User(
                 cpf=demo_client_cpf,
                 role=UserRole.CLIENTE,
-                password_hash=hash_password(settings.demo_client_password),
+                password_hash=hash_password(demo_client_password),
                 client_id=demo_client.id,
             )
         )

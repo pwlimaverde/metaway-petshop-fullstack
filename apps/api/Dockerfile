@@ -22,11 +22,17 @@ COPY --from=builder /app/alembic /app/alembic
 COPY --from=builder /app/alembic.ini /app/alembic.ini
 COPY entrypoint.sh /app/entrypoint.sh
 
-RUN chmod +x /app/entrypoint.sh
+RUN groupadd --system --gid 1000 appgroup \
+    && useradd --system --uid 1000 --gid appgroup --create-home appuser \
+    && mkdir -p /app/storage \
+    && chown -R appuser:appgroup /app \
+    && chmod +x /app/entrypoint.sh
 
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH="/app/src"
 
 EXPOSE 8000
+
+USER appuser
 
 CMD ["/app/entrypoint.sh"]

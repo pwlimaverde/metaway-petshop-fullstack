@@ -13,7 +13,7 @@ API FastAPI do sistema Metaway Petshop, com autenticação JWT (CPF como usernam
 - Alembic
 - PostgreSQL
 - passlib[bcrypt]
-- python-jose (JWT)
+- PyJWT (JWT)
 - Ruff + Pytest
 
 ## Estrutura

@@ -3,8 +3,9 @@ from __future__ import annotations
 import os
 
 os.environ.setdefault("POSTGRES_PASSWORD", "test_only")
-os.environ.setdefault("JWT_SECRET_KEY", "test_only_secret")
+os.environ.setdefault("JWT_SECRET_KEY", "test_only_secret_key_with_32bytes!")
 os.environ.setdefault("ADMIN_SEED_PASSWORD", "Test123")
+os.environ.setdefault("DEMO_CLIENT_PASSWORD", "Client123!")
 
 from collections.abc import AsyncIterator, Awaitable, Callable
 from datetime import UTC, date, datetime
@@ -29,6 +30,7 @@ from metaway_api.infra.models import (
     User,
 )
 from metaway_api.infra.security import hash_password
+from metaway_api.interfaces.routers.auth import limiter as auth_limiter
 from metaway_api.main import app
 from metaway_api.settings import get_settings
 
@@ -86,6 +88,16 @@ async def session_factory(
     settings.upload_dir = old_upload_dir
     settings.run_seed_on_startup = old_seed_behavior
     await engine.dispose()
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def reset_auth_rate_limiter() -> AsyncIterator[None]:
+    storage = getattr(auth_limiter, "_storage", None)
+    if storage is not None and hasattr(storage, "reset"):
+        storage.reset()
+    yield
+    if storage is not None and hasattr(storage, "reset"):
+        storage.reset()
 
 
 @pytest_asyncio.fixture

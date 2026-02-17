@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
 
-from jose import jwt
+import jwt
 
 from metaway_api.settings import get_settings
 
@@ -95,3 +95,13 @@ async def test_missing_user_token_returns_401(client, seed_data) -> None:
 async def test_no_token_returns_401(client) -> None:
     response = await client.get("/api/v1/users")
     assert response.status_code == 401
+
+
+async def test_login_rate_limit_returns_429(client, seed_data) -> None:
+    payload = {"username": seed_data["admin_cpf"], "password": "senha_invalida"}
+    for _ in range(5):
+        response = await client.post("/api/v1/auth/login", data=payload)
+        assert response.status_code == 401
+
+    response = await client.post("/api/v1/auth/login", data=payload)
+    assert response.status_code == 429
