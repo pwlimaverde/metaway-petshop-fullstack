@@ -3,9 +3,10 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError, jwt
+from jwt.exceptions import PyJWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from metaway_api.domain.enums import UserRole
@@ -51,7 +52,7 @@ def decode_access_token(token: str) -> dict[str, Any]:
             settings.jwt_secret_key,
             algorithms=[settings.jwt_algorithm],
         )
-    except JWTError as exc:
+    except PyJWTError as exc:
         raise _UNAUTHORIZED_EXCEPTION from exc
 
     if "sub" not in payload or "role" not in payload or "exp" not in payload:

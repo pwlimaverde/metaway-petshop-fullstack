@@ -6,11 +6,15 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from metaway_api.infra.database import AsyncSessionLocal
 from metaway_api.infra.seed import seed_initial_data
 from metaway_api.interfaces.routers.addresses import router as addresses_router
 from metaway_api.interfaces.routers.appointments import router as appointments_router
+from metaway_api.interfaces.routers.auth import limiter
 from metaway_api.interfaces.routers.auth import router as auth_router
 from metaway_api.interfaces.routers.breeds import router as breeds_router
 from metaway_api.interfaces.routers.clients import router as clients_router
@@ -23,6 +27,9 @@ from metaway_api.settings import get_settings
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
+allowed_origins = [
+    origin.strip() for origin in settings.allowed_origins.split(",") if origin.strip()
+]
 
 tags_metadata = [
     {"name": "Auth", "description": "Autenticação e emissão de token JWT."},
@@ -55,15 +62,18 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(
     title="Metaway Petshop API",
-    version="1.0.0",
+    version="1.0.1",
     description="API para gestão de clientes, pets, raças e atendimentos.",
     lifespan=lifespan,
     openapi_tags=tags_metadata,
 )
 
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
