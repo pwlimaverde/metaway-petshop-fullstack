@@ -5,10 +5,6 @@ import { useRoute } from 'vue-router'
 import Icon from '@/components/ui/Icon.vue'
 import { useAuthStore } from '@/stores/auth'
 
-const props = defineProps<{
-  open?: boolean
-}>()
-
 const emit = defineEmits<{
   close: []
 }>()

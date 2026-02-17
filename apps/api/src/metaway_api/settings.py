@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     admin_seed_name: str = "Administrador"
     admin_seed_cpf: str = "52998224725"
     admin_seed_password: str
+    demo_client_name: str = "Cliente Demonstração"
+    demo_client_cpf: str = "12345678909"
+    demo_client_password: str = "Cliente123"
     run_seed_on_startup: bool = False
 
     upload_dir: str = "/app/storage"

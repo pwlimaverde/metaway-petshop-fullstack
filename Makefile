@@ -14,7 +14,7 @@ ALEMBIC_DATABASE_URL ?= $(if $(DATABASE_URL),$(subst @db:,@$(ALEMBIC_DB_HOST):,$
 API_DIR = apps/api
 WEB_DIR = apps/web
 
-.PHONY: help up down logs build rebuild-web rebuild-api rebuild-front rebuild-back migrate makemigrations \
+.PHONY: help up down logs build rebuild-web rebuild-api rebuild-front rebuild-back migrate makemigrations seed sync-version \
         api-format api-lint api-test \
         web-lint web-format web-test \
         test lint format
@@ -30,6 +30,8 @@ help:
 	@echo "  rebuild-front - Alias for rebuild-web"
 	@echo "  rebuild-back  - Alias for rebuild-api"
 	@echo "  migrate         - Run Alembic migrations (upgrade head)"
+	@echo "  seed            - Run demo seed data in api container"
+	@echo "  sync-version    - Sync monorepo version from VERSION file"
 	@echo "  makemigrations  - Generate new Alembic revision (autogenerate)"
 	@echo ""
 	@echo "=== Backend (local via uv) ==="
@@ -74,6 +76,12 @@ rebuild-back: rebuild-api
 
 migrate:
 	$(COMPOSE_CMD) exec api alembic upgrade head
+
+seed:
+	$(COMPOSE_CMD) exec api python -m metaway_api.infra.seed_cli
+
+sync-version:
+	python scripts/sync_version.py
 
 makemigrations:
 ifeq ($(OS),Windows_NT)
