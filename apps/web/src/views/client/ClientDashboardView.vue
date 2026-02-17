@@ -12,12 +12,6 @@ const clientsApi = useClients()
 
 const client = ref<Client | null>(null)
 
-// Mock data (pode ser substituído por chamadas reais à API depois)
-const counters = ref({
-  pets: 0,
-  nextAppointment: null as string | null,
-})
-
 const quickLinks = [
   { label: 'Meus Pets', to: '/my-pets', icon: 'PawPrint', description: 'Veja seus pets cadastrados' },
   { label: 'Agendamentos', to: '/my-appointments', icon: 'CalendarRange', description: 'Histórico e futuros' },
@@ -25,16 +19,11 @@ const quickLinks = [
 ]
 
 onMounted(async () => {
-    // Carregar dados do cliente (foto, nome completo)
-    try {
-      client.value = await clientsApi.getMe()
-    } catch (error) {
-      console.error('Failed to load client profile', error)
-    }
-
-    // Futuramente: carregar contadores reais da API
-    counters.value.pets = 2 // Exemplo
-    counters.value.nextAppointment = 'Hoje, 14:00' // Exemplo
+  try {
+    client.value = await clientsApi.getMe()
+  } catch {
+    client.value = null
+  }
 })
 </script>
 

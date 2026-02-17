@@ -47,7 +47,7 @@ async def lifespan(_: FastAPI):
     if settings.run_seed_on_startup:
         try:
             async with AsyncSessionLocal() as session:
-                await seed_initial_data(session)
+                await seed_initial_data(session, only_if_empty=True)
         except Exception:  # pragma: no cover - fallback para ambientes sem banco ativo
             logger.exception("Falha ao executar seed inicial no startup.")
     yield

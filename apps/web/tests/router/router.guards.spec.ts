@@ -60,7 +60,7 @@ describe('router guards', () => {
 
     await router.push('/admin/clients')
 
-    expect(router.currentRoute.value.path).toBe('/profile')
+    expect(router.currentRoute.value.path).toBe('/client-dashboard')
   })
 
   it('permite admin em rota de cliente', async () => {
@@ -118,7 +118,7 @@ describe('router guards', () => {
       persistSession('CLIENTE', 15)
 
       await router.push(path)
-      expect(router.currentRoute.value.path).toBe('/profile')
+      expect(router.currentRoute.value.path).toBe('/client-dashboard')
     }
   })
 

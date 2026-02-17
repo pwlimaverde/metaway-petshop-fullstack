@@ -1,5 +1,25 @@
 # Help — Metaway Petshop Fullstack
 
+## 0. Versionamento (fonte única)
+
+A versão do monorepo é centralizada no arquivo `VERSION` (raiz do projeto).
+
+- Release atual: `v1.0.0` (`VERSION=1.0.0`).
+- Formato esperado no arquivo `VERSION`: `MAJOR.MINOR.PATCH` (sem prefixo `v`).
+- Não altere versão manualmente em `pyproject.toml`, `package.json`, `package-lock.json` ou `main.py`.
+- Esses arquivos são sincronizados automaticamente por `scripts/sync_version.py`.
+
+Fluxo recomendado para nova release:
+
+```bash
+# 1) editar somente o arquivo VERSION (ex.: 1.1.0)
+make sync-version
+# 2) revisar alterações geradas
+git diff
+# 3) commitar e criar tag da release
+git tag -a v<versao> -m "release v<versao>"
+```
+
 ## 1. Configuração Inicial (Faça isso primeiro!) 🛠️
 
 Antes de rodar qualquer automação, você precisa preparar o ambiente.
@@ -33,11 +53,11 @@ Abra o arquivo `.env` recém-criado e verifique a variável `DOCKER_HOST`.
   # DOCKER_HOST=ssh://...
   ```
 
-- **Opção B: Rodar em Servidor Remoto (VPS/Hostinger)** ☁️
+- **Opção B: Rodar em Servidor Remoto (VPS)** ☁️
   Se você quer comandar o deploy da sua máquina, mas rodar os containers em um servidor.
   **Ação:** Descomente e aponte para seu alias SSH configurado.
   ```ini
-  DOCKER_HOST=ssh://hostinger-root
+  DOCKER_HOST=ssh://seu-alias-ssh
   ```
   > _Precisa de ajuda para configurar o SSH? Veja a seção [Guia Avançado: Deploy Remoto](#guia-avancado-deploy-remoto-via-ssh) no final deste arquivo._
 
@@ -100,14 +120,17 @@ O jeito mais simples de rodar qualquer operação. Requer `make` instalado.
 | `make rebuild-front`  | Alias para `make rebuild-web`                   |
 | `make rebuild-back`   | Alias para `make rebuild-api`                   |
 | `make migrate`        | Executa as migrations (Alembic upgrade head)    |
+| `make seed`           | Executa seed de demonstração no container da API |
+| `make sync-version`   | Propaga versão do arquivo `VERSION` para manifests |
 | `make makemigrations` | Gera nova revision Alembic com nome automático (`auto_YYYYMMDD_HHMMSS`) |
-| `make api-lint`       | Lint do backend (Ruff) via Docker               |
-| `make api-format`     | Formatação e auto-fix do backend via Docker     |
-| `make api-test`       | Testes do backend (pytest) via Docker           |
-| `make web-lint`       | Lint do frontend (ESLint) via Docker            |
-| `make web-format`     | Verificação de formatação (Prettier) via Docker |
-| `make web-test`       | Testes do frontend (Vitest) via Docker          |
+| `make api-lint`       | Lint do backend (Ruff, local via uv)            |
+| `make api-format`     | Formatação e auto-fix do backend (local via uv) |
+| `make api-test`       | Testes do backend (pytest, local via uv)        |
+| `make web-lint`       | Lint do frontend (ESLint, local via npm)        |
+| `make web-format`     | Verificação de formatação (Prettier, local via npm) |
+| `make web-test`       | Testes do frontend (Vitest, local via npm)      |
 | `make lint`           | Lint completo (backend + frontend)              |
+| `make format`         | Formatação completa (backend + frontend)        |
 | `make test`           | Testes completos (backend + frontend)           |
 
 ### 🐍 Backend (Local, sem Docker)
@@ -273,32 +296,32 @@ CPF e Senha estão definidos no `.env` (variáveis `ADMIN_SEED_CPF` e `ADMIN_SEE
 
 ## Guia Avançado: Deploy Remoto (Via SSH)
 
-Para conectar seu Docker local a um servidor remoto (como Hostinger VPS), siga estes passos únicos.
+Para conectar seu Docker local a um servidor remoto, siga estes passos.
 
 **Pré-requisito:** Autenticação SSH por chave pública configurada (sem senha).
 
 **1. Configure seu SSH Local (`~/.ssh/config`)**
 Edite (ou crie) o arquivo `C:\Users\SEU_USUARIO\.ssh\config` (Windows) ou `~/.ssh/config` (Linux/Mac) para criar um alias fácil.
 
-Exemplo para Hostinger:
+Exemplo genérico:
 
 ```ssh-config
-Host hostinger-root
-    HostName srv1321059.hstgr.cloud
-    User root
+Host seu-alias-ssh
+    HostName seu-servidor.exemplo.com
+    User seu-usuario
     Port 22
-    IdentityFile C:/Users/pwlim/.ssh/id_hostinger_root
+    IdentityFile C:/Users/SEU_USUARIO/.ssh/sua_chave_privada
 ```
 
 **2. Teste a conexão**
-No terminal: `ssh hostinger-root`
+No terminal: `ssh seu-alias-ssh`
 _Deve conectar imediatamente sem pedir senha._
 
 **3. Configure o `.env`**
 Agora aponte o Docker para este alias:
 
 ```ini
-DOCKER_HOST=ssh://hostinger-root
+DOCKER_HOST=ssh://seu-alias-ssh
 ```
 
 Pronto! Agora todos os comandos `docker compose` (e o script de setup) vão operar no servidor remoto.
