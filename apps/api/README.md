@@ -54,6 +54,7 @@ make seed
 - Swagger UI: `http://localhost/docs`
 - OpenAPI JSON: `http://localhost/openapi.json`
 - Healthcheck: `http://localhost/api/v1/health`
+- Métricas: `http://localhost/api/v1/metrics`
 
 Fluxo:
 

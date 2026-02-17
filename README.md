@@ -64,6 +64,7 @@ Com `RUN_SEED_ON_STARTUP=true`, o seed completo roda automaticamente no primeiro
 - Frontend: `http://localhost/`
 - Swagger: `http://localhost/docs`
 - Healthcheck: `http://localhost/api/v1/health`
+- Métricas: `http://localhost/api/v1/metrics`
 
 ## Credenciais de demonstração (seed)
 
