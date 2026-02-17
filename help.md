@@ -271,7 +271,10 @@ Quando os containers estão rodando (`make up`), tudo é acessível por uma úni
 | **Frontend**     | `http://localhost`               | Aplicação Vue                  |
 | **Swagger API**  | `http://localhost/docs`          | Documentação interativa da API |
 | **Healthcheck**  | `http://localhost/api/v1/health` | Verificação de saúde           |
+| **Métricas**     | `http://localhost/api/v1/metrics` | Métricas do processo da API    |
 | **OpenAPI JSON** | `http://localhost/openapi.json`  | Especificação OpenAPI          |
+
+> `/metrics` (sem prefixo) é rota web, não endpoint da API.
 
 ### Acesso Direto (Dev Local, sem Nginx)
 
@@ -280,6 +283,7 @@ Quando os containers estão rodando (`make up`), tudo é acessível por uma úni
 | **Frontend**    | `http://localhost:5173`               | Dev server Vite (`npm run dev`) |
 | **Swagger API** | `http://localhost:8000/docs`          | API rodando via uvicorn         |
 | **Healthcheck** | `http://localhost:8000/api/v1/health` | Verificação de saúde            |
+| **Métricas**    | `http://localhost:8000/api/v1/metrics` | Métricas do processo da API     |
 
 ### Login na API
 

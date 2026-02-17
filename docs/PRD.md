@@ -45,7 +45,7 @@ Sistema web + API para gestão de **clientes**, **pets**, **raças** e **atendim
 | Desejável | Status no projeto |
 |-----------|-------------------|
 | Documentação da API (Swagger/OpenAPI) | **Incluído** — FastAPI gera `/docs` automaticamente |
-| Métricas de funcionamento (heartbeat, memória, CPU) | **Incluído** — endpoints `/health` e `/metrics` |
+| Métricas de funcionamento (heartbeat, memória, CPU) | **Incluído** — endpoints `/api/v1/health` e `/api/v1/metrics` |
 | Containerização (Docker) | **Incluído** — Docker Compose com Nginx gateway |
 | Instruções de uso (`help.md`) | **Incluído** |
 | Fotos no cadastro de Pets e Cliente | **Incluído** — upload com armazenamento local |
@@ -410,7 +410,7 @@ Observação: um `Client` pode existir sem `User` vinculado até o momento de cr
 ### RF-11 — Healthcheck e métricas (desejável)
 
 - `GET /health` → `{ "status": "ok" }` — healthcheck para orquestração Docker.
-- `GET /metrics` → métricas simples: uptime, uso de memória, CPU.
+- `GET /api/v1/metrics` → métricas simples: uptime, uso de memória, CPU.
 
 ---
 
@@ -423,7 +423,7 @@ Observação: um `Client` pode existir sem `User` vinculado até o momento de cr
 | Método | Rota | Descrição | Auth |
 |--------|------|-----------|------|
 | GET | `/health` | Healthcheck | Público |
-| GET | `/metrics` | Métricas (uptime, mem, cpu) | Público |
+| GET | `/api/v1/metrics` | Métricas (uptime, mem, cpu) | Público |
 
 ### 10.2 Auth
 
