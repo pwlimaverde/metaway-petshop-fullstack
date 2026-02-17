@@ -1,0 +1,62 @@
+[project]
+name = "metaway-api"
+version = "1.0.0"
+description = "API do sistema de gestão de petshop da Metaway"
+readme = "README.md"
+requires-python = ">=3.13,<4.0"
+dependencies = [
+    "alembic",
+    "asyncpg",
+    "bcrypt<4.1",
+    "fastapi",
+    "pillow",
+    "passlib[bcrypt]",
+    "pydantic",
+    "pydantic-settings",
+    "python-dotenv",
+    "python-jose[cryptography]",
+    "python-multipart",
+    "psycopg2-binary",
+    "sqlalchemy[asyncio]",
+    "uvicorn[standard]",
+]
+
+[build-system]
+requires = ["setuptools>=69.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[dependency-groups]
+dev = [
+    "aiosqlite",
+    "httpx",
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+    "ruff",
+]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 88
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "RUF"]
+ignore = ["B008"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "unit: testes unitários sem I/O",
+    "integration: testes com banco de dados real",
+    "e2e: testes end-to-end via API",
+]
